@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أسماك البحر الطازجة - متجر المأكولات البحرية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ocean: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#06b6d4', 600: '#0891b2', 700: '#0e7490', 800: '#155e75', 900: '#164e63' },
+                        sea: { dark: '#0a2540', accent: '#ff6b6b' }
+                    },
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style> body { font-family: 'Cairo', sans-serif; background-color: #f8fafc; } </style>
+</head>
+<body class="text-gray-800 flex flex-col min-h-screen">
+
+    <!-- إشعار عائم -->
+    <div id="toastNotification" class="fixed bottom-5 left-5 bg-sea-dark text-white px-5 py-3 rounded-2xl shadow-xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 text-sm font-bold">
+        <i class="fa-solid fa-circle-check text-green-400 text-lg"></i>
+        <span id="toastMessage">تمت العملية بنجاح</span>
+    </div>
+
+    <!-- رأس الصفحة -->
+    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <div class="flex items-center gap-3">
+                    <div class="bg-ocean-600 text-white p-3 rounded-2xl shadow-lg shadow-ocean-600/30 flex items-center justify-center">
+                        <i class="fa-solid font-bold fa-fish-fins text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-black text-sea-dark tracking-tight">أسماك البحر الطازجة</h1>
+                        <p class="text-xs text-ocean-600 font-semibold">من البحر إلى مائدتك فوراً 🌊</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="login.html" class="p-3 bg-sea-dark text-white hover:bg-ocean-900 rounded-full transition-colors font-bold flex items-center gap-2 text-xs">
+                        <i class="fa-solid fa-user-shield text-base"></i>
+                        <span class="hidden sm:inline">لوحة الإدارة</span>
+                    </a>
+                    <button onclick="toggleCartModal()" class="relative p-3 bg-ocean-50 text-ocean-700 hover:bg-ocean-100 rounded-full transition-colors font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-basket-shopping text-xl"></i>
+                        <span class="hidden sm:inline text-sm">السلة</span>
+                        <span id="cartCountBadge" class="absolute -top-1 -right-1 bg-sea-accent text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow-sm">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- بانر -->
+    <section class="bg-gradient-to-r from-sea-dark via-ocean-900 to-ocean-800 text-white py-10 px-4 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+            <div class="text-center md:text-right space-y-3">
+                <span class="bg-ocean-500/30 text-ocean-100 text-xs font-bold px-3 py-1 rounded-full border border-ocean-400/30">صيد اليوم 🎣</span>
+                <h2 class="text-3xl md:text-4xl font-extrabold leading-tight">أفضل المأكولات البحرية الطازجة تنظيف وتجهيز حسب طلبك!</h2>
+                <p class="text-ocean-100 text-sm md:text-base max-w-xl">نضمن لك أعلى جودة ونظافة، مع تغليف حراري محكم وتوصيل سريع حتى باب المنزل.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- عرض المنتجات -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
+        <div class="flex items-center justify-between mb-8">
+            <h3 class="text-2xl font-black text-sea-dark">قائمة الأسماك والجمبري الطازج</h3>
+            <span class="text-xs font-bold text-ocean-600 bg-ocean-50 px-3 py-1.5 rounded-full border border-ocean-100">محدث من قاعدة البيانات مباشرة ⚡</span>
+        </div>
+        <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="col-span-full text-center py-12 text-gray-400 font-semibold">جاري تحميل أصناف الصيد الطازج... 🐟</div>
+        </div>
+    </main>
+
+    <!-- نافذة السلة وإتمام الطلب -->
+    <div id="cartModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-lg text-sea-dark"><i class="fa-solid fa-basket-shopping ml-2"></i> سلة المشتريات وإتمام الطلب</h3>
+                <button onclick="toggleCartModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div id="cartItemsContainer" class="divide-y divide-gray-100 max-h-60 overflow-y-auto"></div>
+            <div class="border-t pt-3 space-y-3">
+                <div class="flex justify-between font-bold text-base">
+                    <span>الإجمالي الكلي:</span>
+                    <span id="cartTotalPrice" class="text-ocean-700">0 ج.م</span>
+                </div>
+                <div class="space-y-2.5 pt-2">
+                    <input type="text" id="customerName" placeholder="اسم العميل الكريم" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-ocean-500">
+                    <input type="text" id="customerPhone" placeholder="رقم الهاتف (للتواصل أو الواتساب)" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-ocean-500">
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">طريقة الاستلام</label>
+                            <select id="deliveryMethod" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-ocean-500 bg-white">
+                                <option value="delivery">توصيل للمنزل 🛵</option>
+                                <option value="pickup">استلام من الفرع 🏪</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">طريقة الدفع</label>
+                            <select id="paymentMethod" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-ocean-500 bg-white">
+                                <option value="cash">الدفع عند الاستلام 💵</option>
+                                <option value="visa">الدفع بالفيزا / البطاقة البنكية 💳</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <textarea id="customerAddress" placeholder="العنوان بالتفصيل / ملاحظات التجهيز (تنظيف، تقطيع...)" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-ocean-500"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-3">
+                <button onclick="toggleCartModal()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm">إغلاق</button>
+                <button onclick="checkoutOrder()" class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm shadow-sm">تأكيد وإرسال الطلب 🚀</button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-sea-dark text-white py-6 text-center text-xs mt-auto border-t border-gray-800">
+        <p>جميع الحقوق محفوظة © 2026 - أسماك البحر الطازجة 🌊</p>
+    </footer>
+
+    <script>
+        let cart = JSON.parse(localStorage.getItem('fish_cart')) || [];
+        let loadedProducts = [];
+
+        window.onload = () => { loadStoreProducts(); updateCartBadge(); };
+
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function loadStoreProducts() {
+            const grid = document.getElementById('productsGrid');
+            try {
+                const response = await fetch('http://localhost:5000/api/products');
+                loadedProducts = await response.json();
+
+                if (!loadedProducts || loadedProducts.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-400 font-semibold">لا توجد أصناف متاحة حالياً</div>`;
+                    return;
+                }
+
+                grid.innerHTML = loadedProducts.map(prod => {
+                    const isOut = prod.stock <= 0 || prod.is_available == 0;
+                    return `
+                        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all">
+                            <div class="h-48 overflow-hidden relative bg-gray-100">
+                                <img src="${prod.image_url || 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&q=80&w=500'}" alt="${prod.name}" class="w-full h-full object-cover">
+                                <span class="absolute top-3 right-3 text-xs font-bold px-3 py-1 rounded-full ${isOut ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                                    ${isOut ? 'غير متوفر الآن ❌' : 'متوفر صيد اليوم ✅'}
+                                </span>
+                            </div>
+                            <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+                                <div>
+                                    <h4 class="font-extrabold text-lg text-sea-dark mb-1">${prod.name}</h4>
+                                    <p class="text-xs text-gray-500">المخزون المتبقي: <span class="font-bold ${isOut ? 'text-red-500' : 'text-ocean-700'}">${prod.stock} كجم</span></p>
+                                </div>
+                                <div class="pt-3 border-t border-gray-50 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs text-gray-400">سعر الكيلو</span>
+                                        <span class="text-lg font-black text-sea-dark">${prod.price} <span class="text-xs font-normal">ج.م</span></span>
+                                    </div>
+
+                                    <!-- اختيار الكمية المطلوب إضافتها -->
+                                    <div class="flex items-center justify-between gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                        <span class="text-xs font-bold text-gray-600">الكمية (كجم):</span>
+                                        <div class="flex items-center gap-1">
+                                            <button onclick="adjustQtyInput(${prod.id}, -1)" ${isOut ? 'disabled' : ''} class="w-7 h-7 bg-white rounded-lg border flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-sm">-</button>
+                                            <input type="number" id="qty-input-${prod.id}" value="1" min="1" max="${prod.stock}" step="0.5" ${isOut ? 'disabled' : ''} class="w-14 text-center font-bold text-xs py-1 border rounded-lg outline-none bg-white">
+                                            <button onclick="adjustQtyInput(${prod.id}, 1)" ${isOut ? 'disabled' : ''} class="w-7 h-7 bg-white rounded-lg border flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-sm">+</button>
+                                        </div>
+                                    </div>
+
+                                    <button onclick="addToCartWithQty(${prod.id})" ${isOut ? 'disabled' : ''} class="w-full py-2.5 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 ${isOut ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-ocean-600 hover:bg-ocean-700 text-white'}">
+                                        <i class="fa-solid fa-cart-plus text-sm"></i> ${isOut ? 'نفذت الكمية' : 'إضافة للسلة'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-red-400 font-semibold">تعذر الاتصال بقاعدة البيانات لعرض المنتجات</div>`;
+            }
+        }
+
+        // دالة زيادة وتنقيص الكمية من أزرار +/-
+        function adjustQtyInput(prodId, change) {
+            const input = document.getElementById(`qty-input-${prodId}`);
+            if (!input) return;
+            let currentVal = parseFloat(input.value) || 1;
+            let newVal = currentVal + change;
+            const maxVal = parseFloat(input.max) || 999;
+            if (newVal >= 1 && newVal <= maxVal) {
+                input.value = newVal;
+            }
+        }
+
+        // إضافة المنتج للسلة بالكمية المحددة
+        function addToCartWithQty(productId) {
+            const product = loadedProducts.find(p => p.id === productId);
+            if (!product) return;
+
+            const input = document.getElementById(`qty-input-${productId}`);
+            const requestedQty = parseFloat(input ? input.value : 1) || 1;
+
+            if (product.stock <= 0) {
+                showToast('عذراً، هذا المنتج غير متوفر حالياً في المخزن.');
+                return;
+            }
+
+            const existingItem = cart.find(item => item.id === product.id);
+            const currentCartQty = existingItem ? existingItem.quantity : 0;
+
+            if (currentCartQty + requestedQty > product.stock) {
+                showToast(`عذراً، الكمية المطلوبة تتجاوز المخزون المتاح (${product.stock} كجم).`);
+                return;
+            }
+
+            if (existingItem) {
+                existingItem.quantity += requestedQty;
+            } else {
+                cart.push({ ...product, quantity: requestedQty });
+            }
+            saveCart();
+            showToast(`تمت إضافة ${requestedQty} كجم من "${product.name}" إلى السلة! 🛒`);
+        }
+
+        function saveCart() { localStorage.setItem('fish_cart', JSON.stringify(cart)); updateCartBadge(); }
+        function updateCartBadge() { document.getElementById('cartCountBadge').textContent = cart.reduce((sum, item) => sum + item.quantity, 0); }
+        function toggleCartModal() {
+            const modal = document.getElementById('cartModal');
+            if (modal.classList.contains('hidden')) { modal.classList.remove('hidden'); modal.classList.add('flex'); renderCartItems(); }
+            else { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        }
+
+        function renderCartItems() {
+            const container = document.getElementById('cartItemsContainer');
+            if (cart.length === 0) {
+                container.innerHTML = `<p class="text-center py-4 text-gray-400 text-sm">السلة فارغة حالياً</p>`;
+                document.getElementById('cartTotalPrice').textContent = '0 ج.م';
+                return;
+            }
+            let totalSum = 0;
+            container.innerHTML = cart.map((item, index) => {
+                const itemTotal = item.price * item.quantity;
+                totalSum += itemTotal;
+                return `
+                    <div class="py-3 flex justify-between items-center text-sm">
+                        <div><p class="font-bold text-sea-dark">${item.name}</p><p class="text-xs text-gray-500">${item.price} ج.م × ${item.quantity} كجم</p></div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-extrabold text-ocean-700">${itemTotal} ج.م</span>
+                            <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700 text-xs"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('cartTotalPrice').textContent = `${totalSum} ج.م`;
+        }
+
+        function removeFromCart(index) { cart.splice(index, 1); saveCart(); renderCartItems(); }
+
+        async function checkoutOrder() {
+            if (cart.length === 0) { showToast('السلة فارغة.'); return; }
+            const fullName = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const deliveryMethod = document.getElementById('deliveryMethod').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const address = document.getElementById('customerAddress').value.trim();
+
+            if (!fullName || !phone) { showToast('يرجى إدخال اسم العميل ورقم الهاتف.'); return; }
+
+            const total_price = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const deliveryFee = 20;
+            const grandTotal = total_price + deliveryFee;
+            const notes = cart.map(i => `${i.name} (${i.quantity} كجم)`).join(', ');
+
+            try {
+                await fetch('http://localhost:5000/api/orders', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: fullName,
+                        phone,
+                        delivery_method: deliveryMethod,
+                        payment_method: paymentMethod,
+                        address,
+                        notes,
+                        total_price,
+                        items: cart
+                    })
+                });
+
+                const methodText = deliveryMethod === 'delivery' ? 'توصيل للمنزل 🛵' : 'استلام من الفرع 🏪';
+                const paymentText = paymentMethod === 'cash' ? 'الدفع عند الاستلام 💵' : 'الدفع بالفيزا / البطاقة البنكية 💳';
+
+                let waMessage = `*طلب جديد من متجر أسماك البحر الطازجة* 🌊\n\n👤 *العميل:* ${fullName}\n📞 *الهاتف:* ${phone}\n📍 *الاستلام:* ${methodText}\n💳 *طريقة الدفع:* ${paymentText}\n`;
+                if(address) waMessage += `🏠 *العنوان:* ${address}\n\n`;
+                waMessage += `🛒 *المنتجات:*\n`;
+                cart.forEach(item => { waMessage += `- ${item.name}: ${item.quantity} كجم (${item.price * item.quantity} ج.م)\n`; });
+                waMessage += `\n💰 *الإجمالي:* ${total_price} ج.م\n🚚 *التوصيل:* ${deliveryFee} ج.م\n🏷️ *الكلي:* ${grandTotal} ج.م\n\nشكراً لتسوقكم معنا! 🎉`;
+
+                const storeWhatsAppNumber = "201016112261";
+                window.open(`https://wa.me/${storeWhatsAppNumber}?text=${encodeURIComponent(waMessage)}`, '_blank');
+
+                cart = []; saveCart(); toggleCartModal();
+                showToast('تم إرسال الطلب بنجاح وفتح الواتساب! 🎉');
+            } catch (error) { showToast('حدث خطأ أثناء إرسال الطلب.'); }
+        }
+    </script>
+</body>
+</html>

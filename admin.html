@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - أسماك البحر الطازجة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ocean: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#06b6d4', 600: '#0891b2', 700: '#0e7490', 800: '#155e75', 900: '#164e63' },
+                        sea: { dark: '#0a2540', accent: '#ff6b6b' }
+                    },
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style> body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; } </style>
+</head>
+<body class="text-gray-800 min-h-screen flex flex-col md:flex-row">
+
+    <!-- الإشعار العائم -->
+    <div id="toastNotification" class="fixed bottom-5 left-5 bg-sea-dark text-white px-5 py-3 rounded-2xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 text-sm font-bold border border-ocean-500/35">
+        <i class="fa-solid fa-circle-check text-green-400 text-lg"></i>
+        <span id="toastMessage">تمت العملية بنجاح</span>
+    </div>
+
+    <!-- نافذة تأكيد الحذف الاحترافية -->
+    <div id="customConfirmModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center transform scale-95 transition-all">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="font-black text-lg text-sea-dark">تأكيد الإجراء</h3>
+                <p id="confirmMessageText" class="text-xs text-gray-500">هل أنت متأكد من رغبتك في الاستمرار؟ لا يمكن التراجع عن هذا الإجراء.</p>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold text-xs transition-all">إلغاء</button>
+                <button id="confirmYesBtn" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-md transition-all">نعم، تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- القائمة الجانبية -->
+    <aside class="w-full md:w-64 bg-sea-dark text-white flex-shrink-0">
+        <div class="p-6 border-b border-gray-700 flex items-center gap-3">
+            <div class="bg-ocean-600 text-white p-2.5 rounded-xl shadow-md">
+                <i class="fa-solid fa-fish-fins text-xl"></i>
+            </div>
+            <div>
+                <h2 class="font-extrabold text-base leading-tight">أسماك البحر</h2>
+                <p id="adminRoleDisplay" class="text-xs text-ocean-400">جاري التحقق...</p>
+            </div>
+        </div>
+        <nav class="p-4 space-y-1.5 text-sm font-semibold">
+            <button onclick="switchTab('orders')" id="tab-orders" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-ocean-600 text-white transition-all">
+                <i class="fa-solid fa-receipt text-lg"></i><span>إدارة الطلبات</span>
+            </button>
+            <button onclick="switchTab('products')" id="tab-products" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-gray-300 transition-all">
+                <i class="fa-solid fa-fish text-lg"></i><span>إدارة الأسماك والمخزون</span>
+            </button>
+            <button onclick="switchTab('customers')" id="tab-customers" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-gray-300 transition-all">
+                <i class="fa-solid fa-address-book text-lg"></i><span>إدارة العملاء</span>
+            </button>
+            <button onclick="switchTab('users')" id="tab-users" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-gray-300 transition-all">
+                <i class="fa-solid fa-users-gear text-lg"></i><span>إدارة المستخدمين</span>
+            </button>
+            <a href="index.html" target="_blank" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-gray-300 transition-all mt-6">
+                <i class="fa-solid fa-store text-lg"></i><span>معاينة المتجر للعميل</span>
+            </a>
+            <button onclick="logout()" class="w-full mt-2 flex items-center gap-3 px-4 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 text-red-200 hover:text-white transition-all">
+                <i class="fa-solid fa-right-from-bracket text-lg"></i><span>تسجيل الخروج</span>
+            </button>
+        </nav>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+                <div><p class="text-xs font-bold text-gray-500 mb-1">إجمالي طلبات المتجر</p><h3 class="text-2xl font-black text-sea-dark" id="statOrdersCount">0 طلب</h3></div>
+                <div class="w-12 h-12 bg-ocean-50 text-ocean-600 rounded-2xl flex items-center justify-center text-xl"><i class="fa-solid fa-basket-shopping"></i></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+                <div><p class="text-xs font-bold text-gray-500 mb-1">إجمالي المبيعات</p><h3 class="text-2xl font-black text-green-600" id="statTotalSales">0 ج.م</h3></div>
+                <div class="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-xl"><i class="fa-solid fa-money-bill-wave"></i></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
+                <div><p class="text-xs font-bold text-gray-500 mb-1">الأسماك المتاحة</p><h3 class="text-2xl font-black text-ocean-700" id="statProductsCount">0 صنف</h3></div>
+                <div class="w-12 h-12 bg-blue-50 text-ocean-600 rounded-2xl flex items-center justify-center text-xl"><i class="fa-solid fa-boxes-stacked"></i></div>
+            </div>
+        </div>
+
+        <!-- قسم الطلبات -->
+        <section id="ordersSection" class="space-y-6">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <h3 class="text-xl font-bold text-sea-dark">الطلبات الواردة</h3>
+                <button onclick="printTodayReport()" class="bg-ocean-600 hover:bg-ocean-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2"><i class="fa-solid fa-print"></i> طباعة التقرير</button>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-gray-50 text-gray-600 border-b border-gray-100 font-bold">
+                            <tr><th class="p-4">رقم الطلب</th><th class="p-4">العميل</th><th class="p-4">الاستلام</th><th class="p-4">التفاصيل</th><th class="p-4">الإجمالي</th><th class="p-4">الحالة</th><th class="p-4 text-center">إجراءات</th></tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- قسم المنتجات -->
+        <section id="productsSection" class="space-y-6 hidden">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-sea-dark">إدارة أسعار ومخزون الأسماك</h3>
+                <button id="addProductBtn" onclick="openAddProductModal()" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> إضافة صنف</button>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-gray-50 text-gray-600 border-b border-gray-100 font-bold">
+                            <tr><th class="p-4">المنتج</th><th class="p-4">السعر (ج.م)</th><th class="p-4">المخزون (كجم)</th><th class="p-4">الحالة</th><th class="p-4 text-center">التحكم والحذف</th></tr>
+                        </thead>
+                        <tbody id="productsAdminTable" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- قسم العملاء -->
+        <section id="customersSection" class="space-y-6 hidden">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-sea-dark">قائمة العملاء المسجلين</h3>
+                <span class="text-xs font-semibold text-ocean-600 bg-ocean-50 px-3 py-1 rounded-full border border-ocean-200">سجل قاعدة البيانات 👥</span>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-gray-50 text-gray-600 border-b border-gray-100 font-bold">
+                            <tr><th class="p-4">م</th><th class="p-4">اسم العميل</th><th class="p-4">رقم الهاتف</th><th class="p-4">العنوان</th><th class="p-4 text-center">الطلبات</th><th class="p-4">تاريخ التسجيل</th><th class="p-4 text-center">الإجراءات</th></tr>
+                        </thead>
+                        <tbody id="customersTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- قسم المستخدمين -->
+        <section id="usersSection" class="space-y-6 hidden">
+            <div class="flex items-center justify-between">
+                <h3 class="text-xl font-bold text-sea-dark">إدارة المشرفين</h3>
+                <button onclick="openAddUserModal()" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all shadow-sm flex items-center gap-2"><i class="fa-solid fa-user-plus"></i> مستخدم جديد</button>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-gray-50 text-gray-600 border-b border-gray-100 font-bold">
+                            <tr><th class="p-4">م</th><th class="p-4">اسم المستخدم</th><th class="p-4">الدور</th><th class="p-4">التاريخ</th><th class="p-4 text-center">الإجراءات</th></tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <!-- (نفس الـ Modals السابقة لإضافة منتج ومستخدم) -->
+    <div id="addProductModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-sea-dark">إضافة صنف سمك جديد</h3><button onclick="closeAddProductModal()"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+            <form id="addProductForm" onsubmit="submitNewProduct(event)" class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">اسم السمك</label><input type="text" id="newProdName" required class="w-full px-3 py-2 border rounded-xl"></div>
+                <div><label class="block font-semibold mb-1">سعر الكيلو</label><input type="number" step="0.01" id="newProdPrice" required class="w-full px-3 py-2 border rounded-xl"></div>
+                <div><label class="block font-semibold mb-1">المخزون (كجم)</label><input type="number" step="0.01" id="newProdStock" required class="w-full px-3 py-2 border rounded-xl"></div>
+                <div><label class="block font-semibold mb-1">صورة المنتج</label><input type="file" id="newProdImageFile" accept="image/*" class="w-full px-3 py-2 border rounded-xl bg-gray-50 text-xs"></div>
+                <div class="flex justify-end gap-2 pt-3"><button type="button" onclick="closeAddProductModal()" class="px-4 py-2 bg-gray-100 rounded-xl font-bold">إلغاء</button><button type="submit" class="px-4 py-2 bg-ocean-600 text-white rounded-xl font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addUserModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b pb-3"><h3 class="font-bold text-lg text-sea-dark">إضافة مستخدم جديد</h3><button onclick="closeAddUserModal()"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+            <form id="addUserForm" onsubmit="submitNewUser(event)" class="space-y-3 text-sm">
+                <div><label class="block font-semibold mb-1">اسم المستخدم</label><input type="text" id="newUsername" required class="w-full px-3 py-2 border rounded-xl"></div>
+                <div><label class="block font-semibold mb-1">كلمة المرور</label><input type="password" id="newPassword" required class="w-full px-3 py-2 border rounded-xl"></div>
+                <div>
+                    <label class="block font-semibold mb-1">الصلاحية أو الدور</label>
+                    <select id="newUserRole" class="w-full px-3 py-2 border rounded-xl bg-white">
+                        <option value="مدير عام">مدير عام (صلاحيات كاملة) 🛠️</option>
+                        <option value="مشرف مبيعات">مشرف مبيعات (للاطلاع فقط) 📦</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-3"><button type="button" onclick="closeAddUserModal()" class="px-4 py-2 bg-gray-100 rounded-xl font-bold">إلغاء</button><button type="submit" class="px-4 py-2 bg-ocean-600 text-white rounded-xl font-bold">حفظ</button></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        if (localStorage.getItem('fish_admin_logged_in') !== 'true') { window.location.href = 'login.html'; }
+
+        const currentUserRole = localStorage.getItem('fish_admin_role') || 'مدير عام';
+        document.getElementById('adminRoleDisplay').textContent = `الدور: ${currentUserRole} 🛡️`;
+
+        function canEditOrDelete() { return currentUserRole === 'مدير عام' || currentUserRole === 'مشرف عام'; }
+        if (!canEditOrDelete()) {
+            const addProdBtn = document.getElementById('addProductBtn');
+            if(addProdBtn) addProdBtn.style.display = 'none';
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+        window.onload = () => { loadDashboardData(); };
+        async function loadDashboardData() { await renderOrdersTable(); await renderAdminProductsTable(); }
+
+        function showToast(message) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+                setTimeout(() => { location.reload(); }, 500);
+            }, 2000);
+        }
+
+        let deleteActionCallback = null;
+        function showCustomConfirm(message, callback) {
+            document.getElementById('confirmMessageText').textContent = message;
+            deleteActionCallback = callback;
+            const modal = document.getElementById('customConfirmModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        function closeConfirmModal() {
+            const modal = document.getElementById('customConfirmModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            deleteActionCallback = null;
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const yesBtn = document.getElementById('confirmYesBtn');
+            if(yesBtn) { yesBtn.onclick = async () => { if (deleteActionCallback) { await deleteActionCallback(); } closeConfirmModal(); }; }
+        });
+
+        function switchTab(tab) {
+            ['ordersSection', 'productsSection', 'customersSection', 'usersSection'].forEach(s => {
+                const el = document.getElementById(s); if(el) el.classList.add('hidden');
+            });
+            ['tab-orders', 'tab-products', 'tab-customers', 'tab-users'].forEach(t => {
+                const el = document.getElementById(t); if(el) el.className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-gray-300 transition-all";
+            });
+
+            if(tab === 'orders') {
+                document.getElementById('ordersSection').classList.remove('hidden');
+                document.getElementById('tab-orders').className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-ocean-600 text-white transition-all";
+                renderOrdersTable();
+            } else if(tab === 'products') {
+                document.getElementById('productsSection').classList.remove('hidden');
+                document.getElementById('tab-products').className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-ocean-600 text-white transition-all";
+                renderAdminProductsTable();
+            } else if(tab === 'customers') {
+                document.getElementById('customersSection').classList.remove('hidden');
+                document.getElementById('tab-customers').className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-ocean-600 text-white transition-all";
+                renderCustomersTable();
+            } else if(tab === 'users') {
+                document.getElementById('usersSection').classList.remove('hidden');
+                document.getElementById('tab-users').className = "w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-ocean-600 text-white transition-all";
+                renderUsersTable();
+            }
+        }
+
+        // =================== دوال الجداول ===================
+
+        // 1. الطلبات
+        async function renderOrdersTable() {
+            const tbody = document.getElementById('ordersTableBody');
+            try {
+                const res = await fetch('http://localhost:5000/api/admin/orders');
+                const orders = await res.json();
+                if(!orders.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">لا توجد طلبات</td></tr>`; return; }
+                document.getElementById('statOrdersCount').textContent = `${orders.length} طلب`;
+                const sales = orders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? parseFloat(o.total) : 0), 0);
+                document.getElementById('statTotalSales').textContent = `${sales.toFixed(0)} ج.م`;
+
+                tbody.innerHTML = orders.map(o => `
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="p-4 font-bold text-ocean-700">#${o.id}</td>
+                        <td class="p-4"><p class="font-bold">${o.customer}</p><p class="text-xs text-gray-500">${o.phone}</p></td>
+                        <td class="p-4 text-xs font-semibold">${o.method === 'delivery' ? 'توصيل 🛵' : 'استلام 🏪'}</td>
+                        <td class="p-4 text-xs text-gray-600 max-w-xs">${o.items}</td>
+                        <td class="p-4 font-extrabold">${o.total} ج.م</td>
+                        <td class="p-4">
+                            <select onchange="updateOrderStatus(${o.id}, this.value)" class="text-xs font-bold px-2 py-1.5 rounded-lg border bg-white">
+                                <option value="pending" ${o.status==='pending'?'selected':''}>قيد المراجعة ⏳</option>
+                                <option value="processing" ${o.status==='processing'?'selected':''}>جاري التحضير 🔪</option>
+                                <option value="completed" ${o.status==='completed'?'selected':''}>مكتمل ✅</option>
+                                <option value="cancelled" ${o.status==='cancelled'?'selected':''}>ملغي ❌</option>
+                            </select>
+                        </td>
+                        <td class="p-4 text-center flex items-center justify-center gap-2">
+                            <button onclick="window.open('https://wa.me/2${o.phone}', '_blank')" class="bg-green-100 text-green-700 p-2 rounded-lg"><i class="fa-brands fa-whatsapp"></i></button>
+                            ${canEditOrDelete() ? `<button onclick="deleteOrder(${o.id})" class="bg-red-100 text-red-700 p-2 rounded-lg"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {}
+        }
+        async function updateOrderStatus(id, status) {
+            await fetch(`http://localhost:5000/api/admin/orders/${id}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+            showToast('تم التحديث بنجاح ✅');
+        }
+        function deleteOrder(id) { showCustomConfirm(`حذف الطلب رقم #${id}؟`, async () => { await fetch(`http://localhost:5000/api/admin/orders/${id}`, { method: 'DELETE' }); showToast('تم الحذف! 🗑️'); }); }
+
+        // 2. المنتجات
+        async function renderAdminProductsTable() {
+            const tbody = document.getElementById('productsAdminTable');
+            try {
+                const res = await fetch('http://localhost:5000/api/products');
+                const products = await res.json();
+                document.getElementById('statProductsCount').textContent = `${products.length} صنف`;
+                const allowEdit = canEditOrDelete();
+                tbody.innerHTML = products.map(p => `
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="p-4 font-bold">${p.name}</td>
+                        <td class="p-4"><input type="number" id="price-${p.id}" value="${p.price}" ${!allowEdit ? 'disabled class="w-24 px-2 py-1.5 border rounded-lg text-xs bg-gray-100 text-gray-500"' : 'class="w-24 px-2 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-ocean-500"'}></td>
+                        <td class="p-4"><input type="number" id="stock-${p.id}" value="${p.stock}" ${!allowEdit ? 'disabled class="w-24 px-2 py-1.5 border rounded-lg text-xs bg-gray-100 text-gray-500"' : 'class="w-24 px-2 py-1.5 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-ocean-500"'}></td>
+                        <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-bold ${p.stock <= 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}">${p.stock <= 0 ? 'غير متوفر' : 'متوفر'}</span></td>
+                        <td class="p-4 text-center flex items-center justify-center gap-2">
+                            ${allowEdit ? `<button onclick="updateProduct(${p.id})" class="bg-ocean-600 text-white text-xs px-3 py-1.5 rounded-lg">حفظ</button>` : `<span class="text-xs text-gray-400">للاطلاع</span>`}
+                            ${allowEdit ? `<button onclick="deleteProduct(${p.id}, '${p.name}')" class="bg-red-600 text-white text-xs px-3 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {}
+        }
+        async function updateProduct(id) {
+            if (!canEditOrDelete()) return;
+            const price = document.getElementById(`price-${id}`).value;
+            const stock = document.getElementById(`stock-${id}`).value;
+            await fetch(`http://localhost:5000/api/admin/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price: parseFloat(price), stock: parseFloat(stock) }) });
+            showToast('تم التحديث ✅');
+        }
+        function deleteProduct(id, name) { showCustomConfirm(`حذف "${name}"؟`, async () => { await fetch(`http://localhost:5000/api/admin/products/${id}`, { method: 'DELETE' }); showToast('تم الحذف! 🗑️'); }); }
+
+        // 3. العملاء (مع زر الحذف)
+        async function renderCustomersTable() {
+            const tbody = document.getElementById('customersTableBody');
+            try {
+                const res = await fetch('http://localhost:5000/api/admin/customers');
+                const customers = await res.json();
+                if(!customers.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">لا يوجد عملاء</td></tr>`; return; }
+                const allowEdit = canEditOrDelete();
+
+                tbody.innerHTML = customers.map((c, i) => `
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="p-4 font-bold text-gray-500">#${i + 1}</td>
+                        <td class="p-4 font-bold text-sea-dark">${c.full_name}</td>
+                        <td class="p-4 font-semibold text-ocean-700">${c.phone}</td>
+                        <td class="p-4 text-xs text-gray-600">${c.default_address || 'غير محدد'}</td>
+                        <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-ocean-700">${c.total_orders} طلب</span></td>
+                        <td class="p-4 text-xs text-gray-500">${c.created_at ? c.created_at.split('T')[0] : 'حديث'}</td>
+                        <td class="p-4 text-center flex items-center justify-center gap-2">
+                            <button onclick="window.open('https://wa.me/2${c.phone}', '_blank')" class="bg-green-100 hover:bg-green-200 text-green-700 p-2 rounded-lg transition-colors"><i class="fa-brands fa-whatsapp"></i></button>
+                            ${allowEdit ? `<button onclick="deleteCustomer(${c.id}, '${c.full_name}')" class="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {}
+        }
+        function deleteCustomer(id, name) { showCustomConfirm(`حذف العميل "${name}" نهائياً وسجلاته؟`, async () => { await fetch(`http://localhost:5000/api/admin/customers/${id}`, { method: 'DELETE' }); showToast('تم حذف العميل! 🗑️'); }); }
+
+        // 4. المستخدمين والمشرفين
+        async function renderUsersTable() {
+            const tbody = document.getElementById('usersTableBody');
+            try {
+                const res = await fetch('http://localhost:5000/api/admin/users');
+                const users = await res.json();
+                tbody.innerHTML = users.map((u, i) => `
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="p-4 font-bold">#${i+1}</td>
+                        <td class="p-4 font-bold">${u.username}</td>
+                        <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-ocean-700">${u.role}</span></td>
+                        <td class="p-4 text-xs text-gray-500">${u.created_at ? u.created_at.split('T')[0] : 'حديث'}</td>
+                        <td class="p-4 text-center">
+                            ${canEditOrDelete() ? `<button onclick="deleteUser(${u.id}, '${u.username}')" class="bg-red-100 text-red-700 p-2 rounded-lg"><i class="fa-solid fa-trash"></i></button>` : '<span class="text-xs text-gray-400">غير مسموح</span>'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {}
+        }
+        function deleteUser(id, username) { showCustomConfirm(`حذف المستخدم "${username}"؟`, async () => { await fetch(`http://localhost:5000/api/admin/users/${id}`, { method: 'DELETE' }); showToast('تم حذف المستخدم 🗑️'); }); }
+
+        // Modals Functions
+        function openAddUserModal() { document.getElementById('addUserModal').classList.remove('hidden'); document.getElementById('addUserModal').classList.add('flex'); }
+        function closeAddUserModal() { document.getElementById('addUserModal').classList.add('hidden'); document.getElementById('addUserModal').classList.remove('flex'); }
+        async function submitNewUser(e) {
+            e.preventDefault();
+            if (!canEditOrDelete()) return;
+            const username = document.getElementById('newUsername').value, password = document.getElementById('newPassword').value, role = document.getElementById('newUserRole').value;
+            await fetch('http://localhost:5000/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, role }) });
+            closeAddUserModal(); showToast('تم إضافة المستخدم 👤');
+        }
+
+        function openAddProductModal() { document.getElementById('addProductModal').classList.remove('hidden'); document.getElementById('addProductModal').classList.add('flex'); }
+        function closeAddProductModal() { document.getElementById('addProductModal').classList.add('hidden'); document.getElementById('addProductModal').classList.remove('flex'); }
+        async function submitNewProduct(e) {
+            e.preventDefault();
+            if (!canEditOrDelete()) return;
+            const formData = new FormData();
+            formData.append('name', document.getElementById('newProdName').value); formData.append('price', document.getElementById('newProdPrice').value); formData.append('stock', document.getElementById('newProdStock').value);
+            const img = document.getElementById('newProdImageFile').files[0]; if(img) formData.append('image', img);
+            await fetch('http://localhost:5000/api/admin/products', { method: 'POST', body: formData });
+            closeAddProductModal(); showToast('تم إضافة المنتج 🎉');
+        }
+
+        function printTodayReport() { window.print(); }
+    </script>
+</body>
+</html>
