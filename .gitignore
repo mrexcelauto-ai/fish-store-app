@@ -1,0 +1,9 @@
+﻿node_modules/
+.env
+.env.*
+*.bak
+*.log
+npm-debug.log*
+ngrok.exe.old
+.DS_Store
+Thumbs.db
