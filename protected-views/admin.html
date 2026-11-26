@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الإدارة - مراسي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        whale: {
+                            50: '#f0f8ff',
+                            100: '#e0f2fe',
+                            500: '#0077b6',
+                            600: '#023e8a',
+                            700: '#03045e',
+                            light: '#48cae4',
+                            sky: '#90e0ef'
+                        },
+                        sea: { dark: '#03045e', accent: '#ff6b6b' }
+                    },
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            width: 100%;
+        }
+        .num-en { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: embed; }
+        @media print {
+            body * { visibility: hidden; }
+            #thermalReceiptPrintArea, #thermalReceiptPrintArea * { visibility: visible; }
+            #thermalReceiptPrintArea { position: absolute; left: 0; top: 0; width: 80mm; padding: 5mm; background: #fff; color: #000; font-family: 'Cairo', sans-serif; }
+        }
+    </style>
+    <link rel="icon" href="data:,">
+</head>
+<body class="text-gray-800 flex min-h-screen md:h-screen md:overflow-hidden">
+
+    <audio id="alertSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+    <div id="mobileSidebarBackdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 hidden md:hidden"></div>
+
+    <div id="toastNotification" class="fixed top-4 start-4 end-4 sm:end-auto sm:top-5 sm:start-5 bg-whale-700 text-white px-4 py-3 rounded-2xl shadow-xl z-50 transform -translate-y-24 opacity-0 transition-all duration-300 flex items-center gap-2.5 text-xs sm:text-sm font-bold border border-whale-500/40">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-green-400 text-base sm:text-lg flex-shrink-0"></i>
+        <span id="toastMessage" class="leading-snug">تمت العملية بنجاح</span>
+    </div>
+
+    <div id="confirmDeleteModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-whale-100 text-center transform transition-all">
+            <div class="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto text-xl font-bold">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h4 class="font-extrabold text-sm sm:text-base text-whale-700">تأكيد عملية الحذف</h4>
+            <p class="text-xs text-gray-500 leading-relaxed" id="confirmDeleteText">هل أنت متأكد من رغبتك في حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.</p>
+            <div class="flex gap-2 pt-2">
+                <button type="button" onclick="closeConfirmModal()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors">إلغاء</button>
+                <button type="button" id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors">تأكيد الحذف</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="thermalReceiptPrintArea" class="hidden">
+        <div style="text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <h2 style="font-size: 16px; font-weight: bold; margin: 0;">مراسي 🌊</h2>
+            <p style="font-size: 10px; margin: 2px 0;">إيصال طلب مأكولات بحرية</p>
+            <p id="receiptDateTime" style="font-size: 9px; margin: 2px 0;"></p>
+        </div>
+        <div style="font-size: 11px; margin-bottom: 10px;">
+            <p><strong>رقم الطلب:</strong> <span id="receiptOrderId"></span></p>
+            <p><strong>العميل:</strong> <span id="receiptCustomerName"></span></p>
+            <p><strong>الهاتف:</strong> <span id="receiptCustomerPhone"></span></p>
+            <p><strong>العنوان:</strong> <span id="receiptAddress"></span></p>
+            <p><strong>الجدولة:</strong> <span id="receiptScheduled"></span></p>
+        </div>
+        <div style="border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 5px 0; margin-bottom: 10px; font-size: 11px;">
+            <p><strong>التفاصيل والطلبات:</strong></p>
+            <p id="receiptItemsNotes" style="white-space: pre-line; margin: 5px 0;"></p>
+        </div>
+        <div style="text-align: left; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
+            <p>الإجمالي الكلي: <span id="receiptTotalAmount"></span> ر.س</p>
+        </div>
+        <div style="text-align: center; font-size: 9px; border-top: 1px dashed #000; padding-top: 5px;">
+            <p>شكراً لتعاملكم معنا! 🐟✨</p>
+        </div>
+    </div>
+
+    <aside id="sidebarDrawer" class="hidden md:flex fixed md:static inset-y-0 right-0 z-50 w-72 max-w-[82vw] bg-whale-700 text-white flex-col justify-between border-l border-whale-600/50 shadow-2xl md:shadow-xl flex-shrink-0">
+        <div class="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+            <div class="flex items-center justify-between gap-2 border-b border-white/15 pb-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="bg-whale-500 text-white p-2.5 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <i class="fa-solid fa-shield-halved text-lg sm:text-xl"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="text-sm sm:text-base font-black tracking-tight truncate" id="adminNameDisplay">لوحة التحكم</h1>
+                        <p class="text-[10px] text-whale-sky font-semibold truncate" id="adminRoleDisplay">مشرف النظام 🌊</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleMobileSidebar(false)" aria-label="إغلاق القائمة" class="md:hidden w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white flex-shrink-0">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <nav class="space-y-1 text-xs font-bold">
+                <button type="button" onclick="switchTab('orders')" id="nav-orders" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-whale-500 text-white transition-all shadow-sm text-start"><i class="fa-solid fa-clipboard-list text-sm w-4 text-center"></i><span>إدارة الطلبات</span></button>
+                <button type="button" onclick="switchTab('products')" id="nav-products" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-fish text-sm w-4 text-center"></i><span>إدارة المنتجات والمخزون</span></button>
+                <button type="button" onclick="switchTab('coupons')" id="nav-coupons" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-ticket text-sm w-4 text-center"></i><span>كوبونات الخصم والطباعة</span></button>
+                <button type="button" onclick="switchTab('users')" id="nav-users" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-user-gear text-sm w-4 text-center"></i><span>إدارة المستخدمين (المشرفين)</span></button>
+                <button type="button" onclick="switchTab('customers')" id="nav-customers" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-users text-sm w-4 text-center"></i><span>إدارة العملاء ونقاط الولاء</span></button>
+                <button type="button" onclick="switchTab('complaints')" id="nav-complaints" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-comments text-sm w-4 text-center"></i><span>الشكاوى والمقترحات</span></button>
+                <button type="button" onclick="switchTab('reports')" id="nav-reports" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-chart-line text-sm w-4 text-center"></i><span>تقارير المبيعات والمخزون</span></button>
+                <button type="button" onclick="switchTab('settings')" id="nav-settings" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-start"><i class="fa-solid fa-gears text-sm w-4 text-center"></i><span>إعدادات التوصيل وصيد اليوم</span></button>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-white/15">
+            <button type="button" onclick="adminLogout()" class="w-full py-2.5 bg-red-500/20 text-red-200 hover:bg-red-600 hover:text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors">
+                <i class="fa-solid fa-right-from-bracket"></i> <span>تسجيل الخروج</span>
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 min-h-screen md:h-screen md:overflow-y-auto">
+        <header class="bg-white/95 backdrop-blur-md border-b border-whale-100 h-14 sm:h-20 px-3 sm:px-6 flex items-center justify-between gap-2 sticky top-0 z-30 shadow-sm flex-shrink-0">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button type="button" onclick="toggleMobileSidebar(true)" aria-label="فتح القائمة" class="md:hidden w-9 h-9 rounded-xl bg-whale-50 text-whale-700 hover:bg-whale-100 border border-whale-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                    <i class="fa-solid fa-bars text-base"></i>
+                </button>
+                <h2 id="currentTabTitle" class="text-sm sm:text-lg font-black text-whale-700 truncate">إدارة الطلبات الواردة</h2>
+            </div>
+            <a href="index.html" target="_blank" class="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-whale-50 text-whale-700 hover:bg-whale-100 border border-whale-100 rounded-xl font-bold text-[11px] sm:text-xs flex items-center gap-1.5 transition-colors flex-shrink-0 whitespace-nowrap">
+                <i class="fa-solid fa-store"></i> <span>عرض المتجر</span>
+            </a>
+        </header>
+
+        <div class="p-3 sm:p-6 pb-24 md:pb-6 space-y-4 sm:space-y-6 flex-1 min-w-0">
+            <section id="tab-orders" class="admin-tab space-y-4">
+                <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 sm:space-y-4 min-w-0">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700">قائمة الطلبات الحديثة 📋</h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportOrdersExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-file-excel"></i> <span>تصدير Excel</span>
+                            </button>
+                            <button type="button" onclick="loadAdminOrders()" class="px-3 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 rounded-xl text-xs font-bold flex-shrink-0">
+                                <i class="fa-solid fa-rotate ms-1"></i> تحديث
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-whale-500 text-xs pointer-events-none"></i>
+                        <input type="search" id="orderSearchInput" oninput="filterOrdersTable()" placeholder="بحث سريع برقم الطلب، اسم العميل، الهاتف، أو الصنف..." class="w-full pr-9 pl-9 py-2.5 bg-whale-50/50 border border-whale-100 focus:border-whale-500 focus:bg-white rounded-2xl text-xs font-bold text-gray-800 outline-none transition-all">
+                        <button type="button" id="clearOrderSearchBtn" onclick="clearSearchInput('orderSearchInput', 'clearOrderSearchBtn', filterOrdersTable)" aria-label="مسح البحث" class="hidden absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-1 px-1">
+                        <table class="w-full text-start text-xs min-w-[640px]">
+                            <thead>
+                                <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">رقم الطلب</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">العميل والهاتف</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">التفاصيل والتنظيف</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الإجمالي</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الحالة</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminOrdersTableBody" class="divide-y divide-gray-100 font-semibold">
+                                <tr><td colspan="6" class="text-center py-6 text-gray-400">جاري التحميل...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-products" class="admin-tab space-y-4 hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div id="addProductCardContainer" class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-1 h-fit min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">إضافة صنف جديد 🐟</h3>
+                        <form id="addProductForm" onsubmit="addNewProduct(event)" class="space-y-3 text-xs">
+                            <div><label class="block font-bold text-gray-700 mb-1">اسم الصنف (عربي)</label><input type="text" id="newProdName" required placeholder="مثال: سمك قاروص طازج" class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                            <div><label class="block font-bold text-gray-700 mb-1">اسم الصنف بالإنجليزية (100% دقة)</label><input type="text" id="newProdNameEn" dir="ltr" placeholder="Example: Fresh Sea Bass" class="w-full px-3 py-2 border rounded-xl outline-none font-bold text-start focus:border-whale-500"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block font-bold text-gray-700 mb-1">سعر الكيلو (ر.س)</label><input type="number" step="0.5" min="0" id="newProdPrice" required class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                                <div><label class="block font-bold text-gray-700 mb-1">المخزون (كجم)</label><input type="number" step="0.5" min="0" id="newProdStock" required class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                            </div>
+                            <div><label class="block font-bold text-gray-700 mb-1">صورة المنتج</label><input type="file" id="newProdImage" accept="image/*" class="w-full text-xs border rounded-xl p-1 bg-whale-50/40"></div>
+                            <button type="submit" class="w-full py-2.5 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold shadow-sm transition-colors">إضافة الصنف 🚀</button>
+                        </form>
+                    </div>
+                    <div id="productsTableContainer" class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-2 min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">قائمة الأصناف والمخزون 📦</h3>
+                        <div class="overflow-x-auto -mx-1 px-1">
+                            <table class="w-full text-start text-xs min-w-[540px]">
+                                <thead>
+                                    <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الصنف</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الاسم (EN)</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">السعر</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">المخزون</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">حفظ</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">حذف</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminProductsTableBody" class="divide-y divide-gray-100 font-semibold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-coupons" class="admin-tab space-y-4 hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-1 h-fit min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">إنشاء وتوليد كوبون خصم 🎟️</h3>
+                        <form id="createCouponForm" onsubmit="createCoupon(event)" class="space-y-3 text-xs">
+                            <div>
+                                <label class="block font-bold text-gray-700 mb-1">كود الخصم</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="couponCode" required class="flex-1 min-w-0 px-3 py-2 border rounded-xl uppercase font-bold text-whale-700 outline-none focus:border-whale-500" placeholder="أدخل كود أو ولّده">
+                                    <button type="button" onclick="generateRandomCouponCode()" class="px-3 py-2 bg-whale-50 text-whale-700 hover:bg-whale-100 border border-whale-200 rounded-xl font-bold flex items-center gap-1 flex-shrink-0"><i class="fa-solid fa-dice"></i> توليد</button>
+                                </div>
+                            </div>
+                            <div><label class="block font-bold text-gray-700 mb-1">نوع الخصم</label><select id="couponType" class="w-full px-3 py-2 border rounded-xl bg-white font-bold outline-none focus:border-whale-500"><option value="percent">نسبة مئوية (%)</option><option value="fixed">مبلغ ثابت (ر.س)</option></select></div>
+                            <div><label class="block font-bold text-gray-700 mb-1">قيمة الخصم</label><input type="number" step="0.5" min="0.5" id="couponValue" required class="w-full px-3 py-2 border rounded-xl font-bold outline-none focus:border-whale-500" placeholder="مثال: 15"></div>
+                            <button type="submit" class="w-full py-2.5 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold shadow-sm transition-colors">حفظ وتفعيل الكوبون ✨</button>
+                        </form>
+                    </div>
+                    <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-2 min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">الكوبونات النشطة وطباعة الكروت 🖨️</h3>
+                        <div class="overflow-x-auto -mx-1 px-1">
+                            <table class="w-full text-start text-xs min-w-[440px]">
+                                <thead>
+                                    <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الكود</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">النوع</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">القيمة</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminCouponsTableBody" class="divide-y divide-gray-100 font-semibold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-users" class="admin-tab space-y-4 hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-1 h-fit min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">إضافة مشرف جديد 👤</h3>
+                        <form id="addAdminForm" onsubmit="addNewSystemUser(event)" class="space-y-3 text-xs">
+                            <div><label class="block font-bold text-gray-700 mb-1">الاسم</label><input type="text" id="newAdminName" placeholder="الاسم الكامل" autocomplete="off" required class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                            <div><label class="block font-bold text-gray-700 mb-1">اسم المستخدم</label><input type="text" id="newAdminUsername" placeholder="اسم المستخدم للتسجيل" autocomplete="off" required class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                            <div><label class="block font-bold text-gray-700 mb-1">كلمة المرور</label><input type="password" id="newAdminPassword" placeholder="••••••••" autocomplete="new-password" required class="w-full px-3 py-2 border rounded-xl outline-none font-bold focus:border-whale-500"></div>
+                            <div><label class="block font-bold text-gray-700 mb-1">الصلاحية</label><select id="newAdminRole" class="w-full px-3 py-2 border rounded-xl bg-white font-bold outline-none focus:border-whale-500"><option value="sales">مشرف مبيعات (Sales)</option><option value="super_admin">مدير عام (Super Admin)</option></select></div>
+                            <button type="submit" class="w-full py-2.5 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold shadow-sm transition-colors">إضافة المشرف 🚀</button>
+                        </form>
+                    </div>
+                    <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-2 min-w-0">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">قائمة مشرفي لوحة التحكم 🛡️</h3>
+                        <div class="overflow-x-auto -mx-1 px-1">
+                            <table class="w-full text-start text-xs min-w-[560px]">
+                                <thead>
+                                    <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الاسم</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">اسم المستخدم</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الصلاحية</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">كلمة المرور الجديدة</th>
+                                        <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="adminUsersTableBody" class="divide-y divide-gray-100 font-semibold"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-customers" class="admin-tab space-y-4 hidden">
+                <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 sm:space-y-4 min-w-0">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-whale-50 pb-3">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700">قائمة عملاء المتجر ونقاط الولاء 🛒</h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportCustomersExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-file-excel"></i> <span>تصدير Excel</span>
+                            </button>
+                            <button type="button" onclick="loadAdminCustomers()" class="px-3 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 rounded-xl text-xs font-bold flex-shrink-0"><i class="fa-solid fa-rotate ms-1"></i> تحديث</button>
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-whale-500 text-xs pointer-events-none"></i>
+                        <input type="search" id="customerSearchInput" oninput="filterCustomersTable()" placeholder="بحث سريع باسم العميل، رقم الهاتف، أو اسم المستخدم..." class="w-full pr-9 pl-9 py-2.5 bg-whale-50/50 border border-whale-100 focus:border-whale-500 focus:bg-white rounded-2xl text-xs font-bold text-gray-800 outline-none transition-all">
+                        <button type="button" id="clearCustomerSearchBtn" onclick="clearSearchInput('customerSearchInput', 'clearCustomerSearchBtn', filterCustomersTable)" aria-label="مسح البحث" class="hidden absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto -mx-1 px-1">
+                        <table class="w-full text-start text-xs min-w-[600px]">
+                            <thead>
+                                <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الاسم</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الهاتف</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">اسم المستخدم</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجمالي النقاط</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">النقاط المستبدلة</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">النقاط المتبقية</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الطلبات</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminCustomersTableBody" class="divide-y divide-gray-100 font-semibold"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-complaints" class="admin-tab space-y-4 hidden">
+                <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 sm:space-y-4 min-w-0">
+                    <div class="flex flex-wrap justify-between items-center gap-3 border-b border-whale-50 pb-3">
+                        <div>
+                            <h3 class="font-extrabold text-xs sm:text-sm text-whale-700">الشكاوى والمقترحات الواردة من العملاء 💬</h3>
+                            <p class="text-[11px] text-gray-400 mt-0.5">متابعة ملاحظات العملاء وتحديث حالة المعالجة</p>
+                        </div>
+                        <button type="button" onclick="loadAdminComplaints()" class="px-3 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 rounded-xl text-xs font-bold flex-shrink-0">
+                            <i class="fa-solid fa-rotate ms-1"></i> تحديث
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto -mx-1 px-1">
+                        <table class="w-full text-start text-xs min-w-[620px]">
+                            <thead>
+                                <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">النوع</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">العميل والهاتف</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">رقم الطلب</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">نص الشكوى / المقترح</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">التاريخ</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الحالة</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminComplaintsTableBody" class="divide-y divide-gray-100 font-semibold">
+                                <tr><td colspan="7" class="text-center py-6 text-gray-400">جاري التحميل...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-reports" class="admin-tab space-y-5 sm:space-y-6 hidden">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div class="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-whale-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-400 font-bold">إجمالي الإيرادات (الطلبات المكتملة)</p>
+                            <h4 id="reportTotalRevenue" class="text-xl sm:text-2xl font-black text-whale-700 mt-1 num-en">0.00 ر.س</h4>
+                        </div>
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-lg sm:text-xl font-bold flex-shrink-0"><i class="fa-solid fa-wallet"></i></div>
+                    </div>
+                    <div class="bg-white p-4 sm:p-5 rounded-3xl shadow-sm border border-whale-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-400 font-bold">الطلبات المكتملة</p>
+                            <h4 id="reportTotalOrders" class="text-xl sm:text-2xl font-black text-whale-600 mt-1 num-en">0</h4>
+                        </div>
+                        <div class="w-11 h-11 sm:w-12 sm:h-12 bg-whale-50 text-whale-600 rounded-2xl flex items-center justify-center text-lg sm:text-xl font-bold flex-shrink-0"><i class="fa-solid fa-bag-shopping"></i></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 sm:space-y-4 min-w-0">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-whale-50 pb-3">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700">حركة المبيعات خلال الـ 30 يوماً الأخيرة 📈</h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportSalesReportExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-file-excel"></i> <span>تصدير Excel</span>
+                            </button>
+                            <button type="button" onclick="loadSalesReport()" class="px-3 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 rounded-xl text-xs font-bold flex-shrink-0"><i class="fa-solid fa-rotate ms-1"></i> تحديث</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto -mx-1 px-1">
+                        <table class="w-full text-start text-xs min-w-[400px]">
+                            <thead>
+                                <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">التاريخ</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">عدد الطلبات</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الإيرادات اليومية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminDailySalesTableBody" class="divide-y divide-gray-100 font-semibold">
+                                <tr><td colspan="3" class="text-center py-6 text-gray-400">جاري التحميل...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 sm:space-y-4 min-w-0">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-whale-50 pb-3">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700">تقرير حركة المخزون والكميات المنصرفة 📦</h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportInventoryReportExcel()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors flex-shrink-0">
+                                <i class="fa-solid fa-file-excel"></i> <span>تصدير Excel</span>
+                            </button>
+                            <button type="button" onclick="loadInventoryReport()" class="px-3 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 rounded-xl text-xs font-bold flex-shrink-0"><i class="fa-solid fa-rotate ms-1"></i> تحديث المخزون</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto -mx-1 px-1">
+                        <table class="w-full text-start text-xs min-w-[520px]">
+                            <thead>
+                                <tr class="bg-whale-50/70 text-whale-800 border-b border-whale-100">
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الصنف</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">سعر الكيلو</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الكمية المنصرفة (مكتملة)</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">الرصيد المتبقي الحالي</th>
+                                    <th class="p-2.5 sm:p-3 text-start whitespace-nowrap">حالة التوفر</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminInventoryReportTableBody" class="divide-y divide-gray-100 font-semibold">
+                                <tr><td colspan="5" class="text-center py-6 text-gray-400">جاري التحميل...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-settings" class="admin-tab space-y-5 sm:space-y-6 hidden">
+                <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-whale-100 max-w-xl space-y-4">
+                    <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">إعدادات وسياسة التوصيل 🛵</h3>
+                    <form onsubmit="saveDeliverySettings(event)" class="space-y-4 text-xs">
+                        <div><label class="block font-bold text-gray-700 mb-1">نوع رسوم التوصيل</label><select id="settingDeliveryType" class="w-full px-3.5 py-2.5 border rounded-xl bg-white font-bold focus:border-whale-500 outline-none"><option value="fixed">رسوم ثابتة</option><option value="free">توصيل مجاني بالكامل</option><option value="threshold">مجاني إذا تجاوز مبلغ معين</option></select></div>
+                        <div><label class="block font-bold text-gray-700 mb-1">قيمة الرسوم الثابتة (ر.س)</label><input type="number" step="0.5" min="0" id="settingDeliveryFee" class="w-full px-3.5 py-2.5 border rounded-xl font-bold focus:border-whale-500 outline-none"></div>
+                        <div><label class="block font-bold text-gray-700 mb-1">الحد الأدنى للتوصيل المجاني (ر.س)</label><input type="number" step="0.5" min="0" id="settingFreeThreshold" class="w-full px-3.5 py-2.5 border rounded-xl font-bold focus:border-whale-500 outline-none"></div>
+                        <button type="submit" class="w-full py-3 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold shadow-sm transition-colors">حفظ الإعدادات بنجاح 💾</button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-whale-100 max-w-xl space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-whale-50 pb-3">
+                        <h3 class="font-extrabold text-xs sm:text-sm text-whale-700 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-500"></i> التحكم في شريط صيد اليوم (Flash Deals)
+                        </h3>
+                        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-whale-700 bg-whale-50 px-3 py-1.5 rounded-xl border border-whale-100">
+                            <input type="checkbox" id="adminFlashDealActive" checked class="w-4 h-4 text-whale-600 rounded">
+                            <span>إظهار الشريط في المتجر</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-gray-700 mb-1 text-xs">النص المعروض في الشريط</label>
+                        <textarea id="adminFlashDealInput" rows="2" class="w-full px-3.5 py-2.5 border rounded-xl text-xs outline-none font-bold focus:border-whale-500" placeholder="اكتب عرض صيد اليوم هنا..."></textarea>
+                    </div>
+                    <button type="button" onclick="saveFlashDealSetting()" class="w-full py-3 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold text-xs shadow-sm transition-all">
+                        حفظ وتحديث الشريط ⚡
+                    </button>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <nav aria-label="تنقل سريع" class="fixed bottom-0 inset-x-0 z-30 md:hidden bg-white/95 backdrop-blur-md border-t border-whale-100 shadow-2xl px-1.5 py-1.5">
+        <div class="flex items-stretch justify-between gap-1 text-[10px] font-extrabold">
+            <button type="button" onclick="switchTab('orders')" id="bottom-nav-orders" class="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl bg-whale-600 text-white transition-colors">
+                <i class="fa-solid fa-clipboard-list text-sm"></i>
+                <span class="truncate w-full text-center">الطلبات</span>
+            </button>
+            <button type="button" onclick="switchTab('products')" id="bottom-nav-products" class="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl text-whale-700 hover:bg-whale-50 transition-colors">
+                <i class="fa-solid fa-fish text-sm"></i>
+                <span class="truncate w-full text-center">المنتجات</span>
+            </button>
+            <button type="button" onclick="switchTab('customers')" id="bottom-nav-customers" class="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl text-whale-700 hover:bg-whale-50 transition-colors">
+                <i class="fa-solid fa-users text-sm"></i>
+                <span class="truncate w-full text-center">العملاء</span>
+            </button>
+            <button type="button" onclick="switchTab('reports')" id="bottom-nav-reports" class="flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl text-whale-700 hover:bg-whale-50 transition-colors">
+                <i class="fa-solid fa-chart-line text-sm"></i>
+                <span class="truncate w-full text-center">التقارير</span>
+            </button>
+        </div>
+    </nav>
+
+    <div id="printCouponModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-whale-100 text-center">
+            <h4 class="font-extrabold text-xs sm:text-sm text-whale-700 border-b border-whale-50 pb-2">معاينة كارت الخصم للطباعة 🖨️</h4>
+            <div id="printableCard" class="bg-gradient-to-br from-whale-700 via-whale-600 to-whale-500 text-white p-6 rounded-2xl shadow-md border-2 border-dashed border-whale-sky space-y-3 relative overflow-hidden text-center">
+                <div class="flex items-center justify-center gap-2"><i class="fa-solid fa-fish-fins text-whale-sky text-2xl"></i><h3 class="font-black text-lg">مراسي</h3></div>
+                <p class="text-[11px] text-whale-100">كارت خصم خاص ومميز 🎁</p>
+                <div class="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/20"><p class="text-[10px] text-whale-100">قيمة الخصم</p><span id="cardDiscountText" class="text-xl font-black text-amber-300">15% خصم</span></div>
+                <div class="bg-white text-whale-700 py-2 px-4 rounded-xl font-mono text-lg font-extrabold tracking-wider shadow-inner" id="cardCodeText">FISH-8A2F9</div>
+                <p class="text-[9px] text-whale-sky">استخدم هذا الكود أثناء إتمام الطلب من متجرنا الإلكتروني 🌊</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="togglePrintCouponModal()" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-xs">إغلاق</button>
+                <button type="button" onclick="printCouponCard()" class="px-5 py-2 bg-whale-600 hover:bg-whale-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm"><i class="fa-solid fa-print"></i> طباعة الكارت 🖨️</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAdmin = null;
+        let lastOrdersCount = -1;
+        let globalOrdersCache = [];
+        let globalCustomersCache = [];
+        let globalSalesReportCache = { summary: null, daily_sales: [] };
+        let globalInventoryReportCache = [];
+        let deleteCallback = null;
+        let ordersPollTimer = null;
+
+        async function apiRequest(url, options = {}) {
+            const response = await fetch(url, { credentials: 'same-origin', ...options });
+            if (response.status === 401 || response.status === 403) {
+                if (url !== '/api/admin/logout') {
+                    localStorage.removeItem('fish_admin');
+                    window.location.href = 'login.html';
+                    throw new Error('انتهت الجلسة أو لا توجد صلاحية كافية');
+                }
+            }
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (e) {
+                data = null;
+            }
+            if (!response.ok) {
+                throw new Error((data && (data.error || data.message)) || `خطأ في الاستجابة (${response.status})`);
+            }
+            return data;
+        }
+
+        function toggleMobileSidebar(open) {
+            const drawer = document.getElementById('sidebarDrawer');
+            const backdrop = document.getElementById('mobileSidebarBackdrop');
+            if (!drawer || !backdrop) return;
+            const isCurrentlyOpen = !drawer.classList.contains('hidden');
+            const shouldOpen = typeof open === 'boolean' ? open : !isCurrentlyOpen;
+
+            if (shouldOpen) {
+                drawer.classList.remove('hidden');
+                drawer.classList.add('flex');
+                backdrop.classList.remove('hidden');
+            } else {
+                drawer.classList.add('hidden');
+                drawer.classList.remove('flex');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function updateBottomNavActive(tabId) {
+            const bottomTabs = ['orders', 'products', 'customers', 'reports'];
+            bottomTabs.forEach(id => {
+                const btn = document.getElementById(`bottom-nav-${id}`);
+                if (!btn) return;
+                btn.className = id === tabId
+                    ? "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl bg-whale-600 text-white transition-colors shadow-xs"
+                    : "flex-1 min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-xl text-whale-700 hover:bg-whale-50 transition-colors";
+            });
+        }
+
+        function formatEnNumber(num, decimals = null) {
+            const val = Number(num || 0);
+            if (decimals !== null) {
+                return val.toLocaleString('en-US', {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                });
+            }
+            return val.toLocaleString('en-US');
+        }
+
+        function formatEnDate(dateInput) {
+            if (!dateInput) return '-';
+            const d = new Date(dateInput);
+            if (isNaN(d.getTime())) return String(dateInput);
+            return d.toLocaleDateString('en-GB');
+        }
+
+        function getTodayFileStamp() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function exportRowsToExcel(rows, sheetName, filePrefix, colWidths = []) {
+            if (typeof XLSX === 'undefined') {
+                showToast('مكتبة تصدير Excel غير متاحة حالياً', 'error');
+                return;
+            }
+            if (!rows || !rows.length) {
+                showToast('لا توجد بيانات متاحة للتصدير', 'error');
+                return;
+            }
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws['!dir'] = 'rtl';
+            if (colWidths.length) {
+                ws['!cols'] = colWidths.map(w => ({ wch: w }));
+            }
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, `${filePrefix}_${getTodayFileStamp()}.xlsx`);
+            showToast('تم تصدير ملف Excel بنجاح 📊');
+        }
+
+        function parseOrderNotesDetails(rawNotes) {
+            const notesStr = rawNotes || '';
+            let cleaningInfo = 'عادي';
+            let seasoningInfo = 'بدون تتبيلة إضافية';
+            let itemsText = notesStr;
+
+            const cleanMatch = notesStr.match(/\[التنظيف والتحضير:\s*([^\]]+)\]/);
+            if (cleanMatch) cleaningInfo = cleanMatch[1].trim();
+
+            const seasonMatch = notesStr.match(/\[التتبيلة:\s*([^\]]+)\]/);
+            if (seasonMatch) seasoningInfo = seasonMatch[1].trim();
+
+            if (notesStr.includes('المنتجات:')) {
+                itemsText = notesStr.split('المنتجات:')[1].split('|')[0].trim();
+            }
+
+            return { cleaningInfo, seasoningInfo, itemsText };
+        }
+
+        function getOrderStatusLabel(status) {
+            if (status === 'completed') return 'مكتمل';
+            if (status === 'processing') return 'قيد التجهيز';
+            return 'قيد الانتظار';
+        }
+
+        function exportOrdersExcel() {
+            const q = (document.getElementById('orderSearchInput')?.value || '').trim().toLowerCase();
+            const sourceOrders = q
+                ? globalOrdersCache.filter(o =>
+                    String(o.id || '').toLowerCase().includes(q) ||
+                    String(o.customer || '').toLowerCase().includes(q) ||
+                    String(o.phone || '').toLowerCase().includes(q) ||
+                    String(o.items || '').toLowerCase().includes(q)
+                )
+                : globalOrdersCache;
+
+            if (!sourceOrders.length) {
+                showToast('لا توجد طلبات لتصديرها', 'error');
+                return;
+            }
+
+            const rows = sourceOrders.map(o => {
+                const details = parseOrderNotesDetails(o.items);
+                return {
+                    'رقم الطلب': Number(o.id || 0),
+                    'اسم العميل': o.customer || '',
+                    'رقم الهاتف': String(o.phone || ''),
+                    'الأصناف المطلوبة': details.itemsText,
+                    'التنظيف والتحضير': details.cleaningInfo,
+                    'التتبيلة': details.seasoningInfo,
+                    'الإجمالي (ر.س)': Number(o.total || 0),
+                    'الحالة': getOrderStatusLabel(o.status),
+                    'تاريخ الطلب': formatEnDate(o.created_at)
+                };
+            });
+
+            exportRowsToExcel(rows, 'الطلبات', 'Marasi_Orders', [12, 22, 16, 36, 20, 20, 16, 15, 15]);
+        }
+
+        function exportCustomersExcel() {
+            const q = (document.getElementById('customerSearchInput')?.value || '').trim().toLowerCase();
+            const sourceCustomers = q
+                ? globalCustomersCache.filter(c =>
+                    String(c.full_name || '').toLowerCase().includes(q) ||
+                    String(c.phone || '').toLowerCase().includes(q) ||
+                    String(c.username || '').toLowerCase().includes(q)
+                )
+                : globalCustomersCache;
+
+            if (!sourceCustomers.length) {
+                showToast('لا توجد بيانات عملاء لتصديرها', 'error');
+                return;
+            }
+
+            const rows = sourceCustomers.map(c => ({
+                'الاسم الكامل': c.full_name || '',
+                'رقم الهاتف': String(c.phone || ''),
+                'اسم المستخدم': c.username || 'غير متوفر',
+                'إجمالي النقاط': Number(c.total_earned_points || 0),
+                'النقاط المستبدلة': Number(c.used_points || 0),
+                'النقاط المتبقية': Number(c.remaining_points || 0),
+                'عدد الطلبات': Number(c.total_orders || 0)
+            }));
+
+            exportRowsToExcel(rows, 'العملاء والنقاط', 'Marasi_Customers', [24, 16, 18, 16, 18, 18, 14]);
+        }
+
+        function exportSalesReportExcel() {
+            const daily = globalSalesReportCache.daily_sales || [];
+            if (!daily.length) {
+                showToast('لا توجد بيانات مبيعات لتصديرها', 'error');
+                return;
+            }
+            const rows = daily.map(row => ({
+                'التاريخ': formatEnDate(row.sale_date),
+                'عدد الطلبات': Number(row.orders_count || 0),
+                'الإيرادات اليومية (ر.س)': Number(row.daily_revenue || 0)
+            }));
+            exportRowsToExcel(rows, 'تقرير المبيعات', 'Marasi_Sales_Report', [16, 16, 24]);
+        }
+
+        function exportInventoryReportExcel() {
+            const items = globalInventoryReportCache || [];
+            if (!items.length) {
+                showToast('لا توجد بيانات مخزون لتصديرها', 'error');
+                return;
+            }
+            const rows = items.map(item => {
+                const remaining = Number(item.current_stock || 0);
+                const isOut = remaining <= 0 || !item.is_available;
+                const statusText = isOut ? 'نفد المخزون' : (remaining <= 5 ? 'مخزون منخفض' : 'متاح');
+                return {
+                    'الصنف': item.name,
+                    'سعر الكيلو (ر.س)': Number(item.price || 0),
+                    'الكمية المنصرفة (كجم)': Number(item.sold_quantity || 0),
+                    'الرصيد المتبقي الحالي (كجم)': remaining,
+                    'حالة التوفر': statusText
+                };
+            });
+            exportRowsToExcel(rows, 'حركة المخزون', 'Marasi_Inventory_Report', [26, 18, 22, 24, 18]);
+        }
+
+        function clearSearchInput(inputId, clearBtnId, filterFn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.value = '';
+            const clearBtn = document.getElementById(clearBtnId);
+            if (clearBtn) clearBtn.classList.add('hidden');
+            if (typeof filterFn === 'function') filterFn();
+        }
+
+        function renderOrdersRows(orders) {
+            const tbody = document.getElementById('adminOrdersTableBody');
+            if (!orders.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">لا توجد طلبات مطابقة</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = orders.map(o => {
+                const { cleaningInfo, seasoningInfo, itemsText } = parseOrderNotesDetails(o.items);
+
+                return `
+                    <tr class="hover:bg-whale-50/30 align-top">
+                        <td class="p-2.5 sm:p-3 font-extrabold text-whale-700 num-en">#${o.id}</td>
+                        <td class="p-2.5 sm:p-3">
+                            <p class="font-bold">${o.customer}</p>
+                            <p class="text-[10px] text-gray-400 num-en">${o.phone}</p>
+                        </td>
+                        <td class="p-2.5 sm:p-3">
+                            <div class="bg-whale-50/70 p-3 rounded-2xl border border-whale-100 space-y-2 max-w-md text-xs">
+                                <div class="flex items-center gap-1.5 text-whale-700 font-extrabold border-b border-whale-100 pb-1.5">
+                                    <i class="fa-solid fa-fish text-whale-500"></i>
+                                    <span>الأصناف المطلوبة:</span>
+                                </div>
+                                <p class="font-bold text-gray-800 leading-relaxed whitespace-pre-line">${itemsText}</p>
+                                <div class="grid grid-cols-1 gap-1 pt-1 border-t border-whale-100 text-[11px] text-gray-600">
+                                    <p><strong>🔪 التنظيف:</strong> <span class="text-whale-600 font-bold">${cleaningInfo}</span></p>
+                                    <p><strong>🌶️ التتبيلة:</strong> <span class="text-whale-600 font-bold">${seasoningInfo}</span></p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-2.5 sm:p-3 font-black text-whale-600 num-en whitespace-nowrap">${formatEnNumber(o.total, 2)} ر.س</td>
+                        <td class="p-2.5 sm:p-3">
+                            <select onchange="updateOrderStatus(${o.id}, this.value)" class="px-2.5 py-1.5 border rounded-xl text-xs font-bold bg-white outline-none shadow-sm focus:border-whale-500">
+                                <option value="pending" ${o.status==='pending'?'selected':''}>قيد الانتظار ⏳</option>
+                                <option value="processing" ${o.status==='processing'?'selected':''}>قيد التجهيز 👨‍🍳</option>
+                                <option value="completed" ${o.status==='completed'?'selected':''}>مكتمل ✅</option>
+                            </select>
+                        </td>
+                        <td class="p-2.5 sm:p-3">
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="printThermalReceipt(${o.id})" class="px-2.5 py-1.5 bg-whale-50 text-whale-700 hover:bg-whale-100 border border-whale-200 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm whitespace-nowrap"><i class="fa-solid fa-receipt"></i> طباعة</button>
+                                <button type="button" onclick="deleteOrder(${o.id})" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterOrdersTable() {
+            const input = document.getElementById('orderSearchInput');
+            const clearBtn = document.getElementById('clearOrderSearchBtn');
+            const q = (input ? input.value : '').trim().toLowerCase();
+            if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+
+            if (!q) {
+                renderOrdersRows(globalOrdersCache);
+                return;
+            }
+
+            const filtered = globalOrdersCache.filter(o => {
+                const idMatch = String(o.id || '').toLowerCase().includes(q);
+                const customerMatch = String(o.customer || '').toLowerCase().includes(q);
+                const phoneMatch = String(o.phone || '').toLowerCase().includes(q);
+                const itemsMatch = String(o.items || '').toLowerCase().includes(q);
+                return idMatch || customerMatch || phoneMatch || itemsMatch;
+            });
+
+            renderOrdersRows(filtered);
+        }
+
+        function renderCustomersRows(customers) {
+            const tbody = document.getElementById('adminCustomersTableBody');
+            if (!customers.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">لا توجد حسابات عملاء مطابقة</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = customers.map(c => `
+                <tr class="hover:bg-whale-50/30">
+                    <td class="p-2.5 sm:p-3 font-bold text-whale-700">${c.full_name}</td>
+                    <td class="p-2.5 sm:p-3 num-en">${c.phone}</td>
+                    <td class="p-2.5 sm:p-3 font-mono text-whale-600">${c.username || 'غير متوفر'}</td>
+                    <td class="p-2.5 sm:p-3 font-extrabold text-whale-700 num-en">${formatEnNumber(c.total_earned_points || 0)} نقطة 💎</td>
+                    <td class="p-2.5 sm:p-3 font-extrabold text-red-600 num-en">${formatEnNumber(c.used_points || 0)} نقطة 🎟️</td>
+                    <td class="p-2.5 sm:p-3 font-extrabold text-amber-600 num-en">${formatEnNumber(c.remaining_points || 0)} نقطة 🌟</td>
+                    <td class="p-2.5 sm:p-3 font-bold num-en">${formatEnNumber(c.total_orders)} طلبات</td>
+                    <td class="p-2.5 sm:p-3"><button type="button" onclick="deleteCustomer(${c.id})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>
+            `).join('');
+        }
+
+        function filterCustomersTable() {
+            const input = document.getElementById('customerSearchInput');
+            const clearBtn = document.getElementById('clearCustomerSearchBtn');
+            const q = (input ? input.value : '').trim().toLowerCase();
+            if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+
+            if (!q) {
+                renderCustomersRows(globalCustomersCache);
+                return;
+            }
+
+            const filtered = globalCustomersCache.filter(c => {
+                const nameMatch = String(c.full_name || '').toLowerCase().includes(q);
+                const phoneMatch = String(c.phone || '').toLowerCase().includes(q);
+                const userMatch = String(c.username || '').toLowerCase().includes(q);
+                return nameMatch || phoneMatch || userMatch;
+            });
+
+            renderCustomersRows(filtered);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            toggleMobileSidebar(false);
+            const adminData = localStorage.getItem('fish_admin');
+            if (!adminData) { window.location.href = 'login.html'; return; }
+            currentAdmin = JSON.parse(adminData);
+
+            document.getElementById('adminNameDisplay').textContent = currentAdmin.full_name;
+            document.getElementById('adminRoleDisplay').textContent = currentAdmin.role === 'super_admin' ? 'مدير عام (Super Admin)' : 'مشرف مبيعات (Sales)';
+
+            if (currentAdmin.role === 'sales') {
+                document.getElementById('nav-users').style.display = 'none';
+                document.getElementById('nav-settings').style.display = 'none';
+                document.getElementById('nav-coupons').style.display = 'none';
+                document.getElementById('addProductCardContainer').style.display = 'none';
+                document.getElementById('productsTableContainer').className = "bg-white p-3.5 sm:p-5 rounded-3xl shadow-sm border border-whale-100 space-y-3 lg:col-span-3 min-w-0";
+            }
+
+            const addAdminForm = document.getElementById('addAdminForm');
+            if (addAdminForm) addAdminForm.reset();
+
+            const params = new URLSearchParams(window.location.search);
+            const initialTab = params.get('tab');
+            const validTabs = ['orders', 'products', 'coupons', 'users', 'customers', 'complaints', 'reports', 'settings'];
+            if (initialTab && validTabs.includes(initialTab)) {
+                switchTab(initialTab);
+            } else {
+                updateBottomNavActive('orders');
+                loadAdminOrders();
+            }
+
+            if (ordersPollTimer) clearInterval(ordersPollTimer);
+            ordersPollTimer = setInterval(() => {
+                if (currentAdmin && !document.hidden) loadAdminOrders();
+            }, 10000);
+        });
+
+        function showConfirmModal(message, callback) {
+            document.getElementById('confirmDeleteText').textContent = message;
+            deleteCallback = callback;
+            const modal = document.getElementById('confirmDeleteModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmDeleteModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            deleteCallback = null;
+        }
+
+        document.getElementById('confirmDeleteBtn').onclick = function() {
+            if (deleteCallback) deleteCallback();
+            closeConfirmModal();
+        };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.querySelectorAll('aside nav button').forEach(b => { b.className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-whale-100 hover:bg-white/10 transition-all text-xs font-bold text-start"; });
+            document.getElementById(`nav-${tabId}`).className = "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-whale-500 text-white transition-all text-xs font-bold shadow-sm text-start";
+            updateBottomNavActive(tabId);
+
+            const titles = {
+                orders: 'إدارة الطلبات الواردة',
+                products: 'إدارة المنتجات والمخزون',
+                coupons: 'إدارة كوبونات الخصم والطباعة',
+                users: 'إدارة مستخدمي ومشرفي لوحة التحكم',
+                customers: 'إدارة عملاء المتجر ونقاط الولاء',
+                complaints: 'الشكاوى والمقترحات الواردة',
+                reports: 'تقارير المبيعات وحركة المخزون',
+                settings: 'إعدادات التوصيل وصيد اليوم'
+            };
+            document.getElementById('currentTabTitle').textContent = titles[tabId];
+            toggleMobileSidebar(false);
+
+            if (tabId === 'orders') loadAdminOrders();
+            if (tabId === 'products') loadAdminProducts();
+            if (tabId === 'coupons') loadAdminCoupons();
+            if (tabId === 'users') {
+                const addAdminForm = document.getElementById('addAdminForm');
+                if (addAdminForm) addAdminForm.reset();
+                loadAdminUsers();
+            }
+            if (tabId === 'customers') loadAdminCustomers();
+            if (tabId === 'complaints') loadAdminComplaints();
+            if (tabId === 'reports') {
+                loadSalesReport();
+                loadInventoryReport();
+            }
+            if (tabId === 'settings') {
+                loadDeliverySettings();
+                loadAdminFlashDeal();
+            }
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toastNotification');
+            const icon = document.getElementById('toastIcon');
+            document.getElementById('toastMessage').textContent = msg;
+            if (icon) {
+                icon.className = type === 'error'
+                    ? 'fa-solid fa-circle-exclamation text-red-400 text-base sm:text-lg flex-shrink-0'
+                    : 'fa-solid fa-circle-check text-green-400 text-base sm:text-lg flex-shrink-0';
+            }
+            toast.classList.remove('-translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-24', 'opacity-0');
+            }, 3500);
+        }
+
+        function playAlertSound() {
+            const audio = document.getElementById('alertSound');
+            if (audio) { audio.play().catch(() => {}); }
+        }
+
+        function generateRandomCouponCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = 'FISH-';
+            for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('couponCode').value = code;
+        }
+
+        async function loadAdminOrders() {
+            try {
+                const orders = await apiRequest('/api/admin/orders');
+                globalOrdersCache = orders || [];
+
+                if (lastOrdersCount !== -1 && globalOrdersCache.length > lastOrdersCount) {
+                    playAlertSound();
+                    showToast('🚨 تنبيه: وصل طلب جديد للمتجر!');
+                }
+                lastOrdersCount = globalOrdersCache.length;
+
+                if (!globalOrdersCache.length) {
+                    document.getElementById('adminOrdersTableBody').innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">لا توجد طلبات حالياً</td></tr>`;
+                    return;
+                }
+
+                filterOrdersTable();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function printThermalReceipt(orderId) {
+            const order = globalOrdersCache.find(o => o.id === orderId);
+            if (!order) { showToast('تعذر العثور على بيانات الطلب', 'error'); return; }
+
+            document.getElementById('receiptOrderId').textContent = order.id;
+            document.getElementById('receiptCustomerName').textContent = order.customer;
+            document.getElementById('receiptCustomerPhone').textContent = order.phone;
+            document.getElementById('receiptAddress').textContent = order.address || 'غير محدد';
+            document.getElementById('receiptScheduled').textContent = order.scheduled_at || 'فوري الآن';
+            document.getElementById('receiptItemsNotes').textContent = order.items;
+            document.getElementById('receiptTotalAmount').textContent = formatEnNumber(order.total, 2);
+            document.getElementById('receiptDateTime').textContent = new Date(order.created_at || Date.now()).toLocaleString('en-GB');
+
+            window.print();
+        }
+
+        async function updateOrderStatus(id, status) {
+            try {
+                const data = await apiRequest(`/api/admin/orders/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (data && data.success) {
+                    showToast(data.message || 'تم تحديث حالة الطلب بنجاح');
+                    if (status === 'completed') {
+                        loadInventoryReport();
+                        loadSalesReport();
+                        loadAdminCustomers();
+                    }
+                } else {
+                    showToast((data && data.error) || 'تعذر تحديث حالة الطلب', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء تحديث حالة الطلب', 'error');
+            }
+        }
+
+        function deleteOrder(id) {
+            showConfirmModal(`هل أنت متأكد من حذف الطلب رقم #${id} نهائياً؟`, async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/orders/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف الطلب بنجاح');
+                        loadAdminOrders();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف الطلب', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف الطلب', 'error');
+                }
+            });
+        }
+
+        async function loadAdminProducts() {
+            try {
+                const products = await apiRequest('/api/products');
+                const tbody = document.getElementById('adminProductsTableBody');
+                const isSales = currentAdmin && currentAdmin.role === 'sales';
+
+                tbody.innerHTML = (products || []).map(p => `
+                    <tr class="hover:bg-whale-50/30">
+                        <td class="p-2.5 sm:p-3 flex items-center gap-2"><img src="${p.image_url}" class="w-8 h-8 rounded-lg object-cover flex-shrink-0"><span class="font-bold">${p.name}</span></td>
+                        <td class="p-2.5 sm:p-3"><input type="text" dir="ltr" id="p-name-en-${p.id}" value="${p.name_en || ''}" placeholder="English Name" ${isSales ? 'disabled' : ''} class="w-32 px-2 py-1 border rounded-lg text-xs font-bold bg-gray-50 text-start"></td>
+                        <td class="p-2.5 sm:p-3"><input type="number" step="0.5" min="0" id="p-price-${p.id}" value="${p.price}" ${isSales ? 'disabled' : ''} class="w-20 px-2 py-1 border rounded-lg text-xs font-bold bg-gray-50 num-en"></td>
+                        <td class="p-2.5 sm:p-3"><input type="number" step="0.5" min="0" id="p-stock-${p.id}" value="${p.stock}" ${isSales ? 'disabled' : ''} class="w-20 px-2 py-1 border rounded-lg text-xs font-bold bg-gray-50 num-en"></td>
+                        <td class="p-2.5 sm:p-3">${isSales ? '<span class="text-gray-400 text-[10px]">للقراءة فقط</span>' : `<button type="button" onclick="updateProduct(${p.id})" class="px-3 py-1 bg-whale-600 hover:bg-whale-700 text-white rounded-lg text-xs font-bold">حفظ</button>`}</td>
+                        <td class="p-2.5 sm:p-3">${isSales ? '' : `<button type="button" onclick="deleteProduct(${p.id})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>`}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل المنتجات', 'error');
+            }
+        }
+
+        async function updateProduct(id) {
+            const name_en = document.getElementById(`p-name-en-${id}`).value;
+            const price = document.getElementById(`p-price-${id}`).value;
+            const stock = document.getElementById(`p-stock-${id}`).value;
+            try {
+                const data = await apiRequest(`/api/admin/products/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name_en, price, stock })
+                });
+                if (data && data.success) {
+                    showToast('تم تحديث المنتج والترجمة الإنجليزية بنجاح');
+                } else {
+                    showToast((data && data.error) || 'تعذر تحديث المنتج', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء تحديث المنتج', 'error');
+            }
+        }
+
+        async function addNewProduct(e) {
+            e.preventDefault();
+            if (currentAdmin.role === 'sales') { showToast('غير مسموح لك بإضافة منتجات جديدة', 'error'); return; }
+            const formData = new FormData();
+            formData.append('name', document.getElementById('newProdName').value);
+            formData.append('name_en', document.getElementById('newProdNameEn').value.trim());
+            formData.append('price', document.getElementById('newProdPrice').value);
+            formData.append('stock', document.getElementById('newProdStock').value);
+            const imgFile = document.getElementById('newProdImage').files[0];
+            if (imgFile) formData.append('image', imgFile);
+
+            try {
+                const data = await apiRequest('/api/admin/products', { method: 'POST', body: formData });
+                if (data && data.success) {
+                    showToast('تمت إضافة المنتج بنجاح');
+                    document.getElementById('addProductForm').reset();
+                    loadAdminProducts();
+                } else {
+                    showToast((data && data.error) || 'تعذر إضافة المنتج', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء إضافة المنتج', 'error');
+            }
+        }
+
+        function deleteProduct(id) {
+            if (currentAdmin.role === 'sales') return;
+            showConfirmModal('هل أنت متأكد من حذف هذا المنتج من المخزون؟', async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/products/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف المنتج بنجاح');
+                        loadAdminProducts();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف المنتج', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف المنتج', 'error');
+                }
+            });
+        }
+
+        async function loadAdminCoupons() {
+            try {
+                const coupons = await apiRequest('/api/admin/coupons');
+                const tbody = document.getElementById('adminCouponsTableBody');
+                if (!coupons || !coupons.length) { tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-400">لا توجد كوبونات متاحة</td></tr>`; return; }
+                tbody.innerHTML = coupons.map(c => {
+                    const discountLabel = c.discount_type === 'percent' ? `${formatEnNumber(c.discount_value)}%` : `${formatEnNumber(c.discount_value)} ر.س`;
+                    return `
+                        <tr class="hover:bg-whale-50/30">
+                            <td class="p-2.5 sm:p-3 font-mono font-extrabold text-whale-600">${c.code}</td>
+                            <td class="p-2.5 sm:p-3">${c.discount_type === 'percent' ? 'نسبة مئوية' : 'مبلغ ثابت'}</td>
+                            <td class="p-2.5 sm:p-3 font-extrabold text-amber-600 num-en">${discountLabel}</td>
+                            <td class="p-2.5 sm:p-3">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="openPrintModal('${c.code}', '${discountLabel}')" class="px-2.5 py-1 bg-whale-50 text-whale-700 hover:bg-whale-100 border border-whale-200 rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-print"></i> طباعة</button>
+                                    <button type="button" onclick="deleteCoupon(${c.id})" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل الكوبونات', 'error');
+            }
+        }
+
+        async function createCoupon(e) {
+            e.preventDefault();
+            const code = document.getElementById('couponCode').value.trim().toUpperCase();
+            const discount_type = document.getElementById('couponType').value;
+            const discount_value = document.getElementById('couponValue').value;
+            try {
+                const data = await apiRequest('/api/admin/coupons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, discount_type, discount_value })
+                });
+                if (data && data.success) {
+                    showToast(data.message || 'تم إنشاء الكوبون بنجاح');
+                    const form = document.getElementById('createCouponForm');
+                    if (form) form.reset();
+                    loadAdminCoupons();
+                } else {
+                    showToast((data && data.error) || 'تعذر إنشاء الكوبون', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء إنشاء الكوبون', 'error');
+            }
+        }
+
+        function deleteCoupon(id) {
+            showConfirmModal('هل أنت متأكد من حذف كود الخصم هذا؟', async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/coupons/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف الكوبون بنجاح');
+                        loadAdminCoupons();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف الكوبون', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف الكوبون', 'error');
+                }
+            });
+        }
+
+        function togglePrintCouponModal() { document.getElementById('printCouponModal').classList.toggle('hidden'); document.getElementById('printCouponModal').classList.toggle('flex'); }
+        function openPrintModal(code, discountText) { document.getElementById('cardCodeText').textContent = code; document.getElementById('cardDiscountText').textContent = discountText; togglePrintCouponModal(); }
+        function printCouponCard() {
+            const cardContent = document.getElementById('printableCard').outerHTML;
+            const printWindow = window.open('', '', 'width=600,height=600');
+            printWindow.document.write(`<html dir="rtl" lang="ar"><head><title>طباعة كارت</title><script src="https://cdn.tailwindcss.com"><\/script><style>body{font-family:'Cairo',sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#fff;margin:0;}</style></head><body onload="window.print(); window.close();"><div style="width:320px;">${cardContent}</div></body></html>`);
+            printWindow.document.close();
+        }
+
+        async function loadAdminUsers() {
+            try {
+                const users = await apiRequest('/api/admin/users');
+                const tbody = document.getElementById('adminUsersTableBody');
+                if (!users || !users.length) { tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-gray-400">لا توجد حسابات مشرفين أخرى</td></tr>`; return; }
+
+                tbody.innerHTML = users.map(u => `
+                    <tr class="hover:bg-whale-50/30">
+                        <td class="p-2.5 sm:p-3 font-bold text-whale-700">${u.full_name}</td>
+                        <td class="p-2.5 sm:p-3 font-mono text-whale-600">${u.username}</td>
+                        <td class="p-2.5 sm:p-3">
+                            <select id="role_${u.id}" class="px-2 py-1 border rounded-lg text-xs font-bold bg-white outline-none">
+                                <option value="sales" ${u.role==='sales'?'selected':''}>مشرف مبيعات 📦</option>
+                                <option value="super_admin" ${u.role==='super_admin'?'selected':''}>مدير عام 👑</option>
+                            </select>
+                        </td>
+                        <td class="p-2.5 sm:p-3">
+                            <input type="password" id="pass_${u.id}" placeholder="اتركه فارغاً لعدم التغيير" class="px-2.5 py-1 border rounded-lg text-xs font-bold w-32 outline-none bg-gray-50">
+                        </td>
+                        <td class="p-2.5 sm:p-3">
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="updateSystemUser(${u.id})" class="px-3 py-1 bg-whale-600 hover:bg-whale-700 text-white rounded-lg text-xs font-bold shadow-sm whitespace-nowrap">حفظ التعديل</button>
+                                <button type="button" onclick="deleteAdminUser(${u.id})" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل قائمة المشرفين', 'error');
+            }
+        }
+
+        async function updateSystemUser(id) {
+            const role = document.getElementById(`role_${id}`).value;
+            const password = document.getElementById(`pass_${id}`).value;
+
+            try {
+                const data = await apiRequest(`/api/admin/users/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role, password })
+                });
+                if (data && data.success) {
+                    showToast(data.message);
+                    document.getElementById(`pass_${id}`).value = '';
+                    loadAdminUsers();
+                } else {
+                    showToast((data && data.error) || 'حدث خطأ أثناء التحديث', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'تعذر الاتصال بالخادم', 'error');
+            }
+        }
+
+        async function addNewSystemUser(e) {
+            e.preventDefault();
+            const full_name = document.getElementById('newAdminName').value;
+            const username = document.getElementById('newAdminUsername').value;
+            const password = document.getElementById('newAdminPassword').value;
+            const role = document.getElementById('newAdminRole').value;
+            try {
+                const data = await apiRequest('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name, username, password, role })
+                });
+                if (data && data.success) {
+                    showToast(data.message);
+                    document.getElementById('addAdminForm').reset();
+                    loadAdminUsers();
+                } else {
+                    showToast((data && data.error) || 'تعذر إضافة المشرف', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء إضافة المشرف', 'error');
+            }
+        }
+
+        function deleteAdminUser(id) {
+            showConfirmModal('هل أنت متأكد من حذف حساب هذا المشرف؟', async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/users/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف المشرف بنجاح');
+                        loadAdminUsers();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف المشرف', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف المشرف', 'error');
+                }
+            });
+        }
+
+        async function loadAdminCustomers() {
+            try {
+                const customers = await apiRequest('/api/admin/customers');
+                globalCustomersCache = customers || [];
+                if (!globalCustomersCache.length) {
+                    document.getElementById('adminCustomersTableBody').innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">لا توجد حسابات عملاء</td></tr>`;
+                    return;
+                }
+                filterCustomersTable();
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل بيانات العملاء', 'error');
+            }
+        }
+
+        function deleteCustomer(id) {
+            showConfirmModal('هل أنت متأكد من حذف حساب هذا العميل؟', async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/customers/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف العميل بنجاح');
+                        loadAdminCustomers();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف العميل', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف العميل', 'error');
+                }
+            });
+        }
+
+        async function loadAdminComplaints() {
+            try {
+                const data = await apiRequest('/api/admin/complaints-suggestions');
+                const tbody = document.getElementById('adminComplaintsTableBody');
+                const items = (data && data.items) || [];
+
+                if (!items.length) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">لا توجد شكاوى أو مقترحات حالياً</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = items.map(item => {
+                    let typeBadge = '<span class="px-2.5 py-1 rounded-xl bg-red-50 text-red-600 border border-red-200 text-[11px] font-bold">شكوى ⚠️</span>';
+                    if (item.type === 'suggestion') {
+                        typeBadge = '<span class="px-2.5 py-1 rounded-xl bg-whale-50 text-whale-700 border border-whale-200 text-[11px] font-bold">مقترح 💡</span>';
+                    } else if (item.type === 'inquiry') {
+                        typeBadge = '<span class="px-2.5 py-1 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold">استفسار ❓</span>';
+                    }
+
+                    const orderBadge = item.order_id
+                        ? `<span class="font-mono font-bold text-whale-600 num-en">#${item.order_id}</span>`
+                        : '<span class="text-gray-400">-</span>';
+
+                    return `
+                        <tr class="hover:bg-whale-50/30 align-top">
+                            <td class="p-2.5 sm:p-3">${typeBadge}</td>
+                            <td class="p-2.5 sm:p-3">
+                                <p class="font-bold text-whale-700">${item.customer_name || 'عميل'}</p>
+                                <p class="text-[11px] text-gray-400 num-en">${item.phone || 'غير متوفر'}</p>
+                            </td>
+                            <td class="p-2.5 sm:p-3">${orderBadge}</td>
+                            <td class="p-2.5 sm:p-3 max-w-md">
+                                <p class="text-gray-800 leading-relaxed whitespace-pre-line">${item.message}</p>
+                            </td>
+                            <td class="p-2.5 sm:p-3 text-gray-500 num-en">${formatEnDate(item.created_at)}</td>
+                            <td class="p-2.5 sm:p-3">
+                                <select onchange="updateComplaintStatus(${item.id}, this.value)" class="px-2.5 py-1.5 border rounded-xl text-xs font-bold bg-white outline-none shadow-sm">
+                                    <option value="new" ${item.status === 'new' ? 'selected' : ''}>جديدة 🆕</option>
+                                    <option value="in_progress" ${item.status === 'in_progress' ? 'selected' : ''}>قيد المراجعة ⏳</option>
+                                    <option value="resolved" ${item.status === 'resolved' ? 'selected' : ''}>تمت المعالجة ✅</option>
+                                </select>
+                            </td>
+                            <td class="p-2.5 sm:p-3">
+                                <button type="button" onclick="deleteComplaint(${item.id})" class="text-red-500 hover:text-red-700 p-1" title="حذف">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل الشكاوى والمقترحات', 'error');
+            }
+        }
+
+        async function updateComplaintStatus(id, status) {
+            try {
+                const data = await apiRequest(`/api/admin/complaints-suggestions/${id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (data && data.success) {
+                    showToast(data.message || 'تم تحديث الحالة بنجاح');
+                } else {
+                    showToast((data && data.error) || 'تعذر تحديث الحالة', 'error');
+                }
+            } catch (e) {
+                showToast(e.message || 'حدث خطأ أثناء تحديث الحالة', 'error');
+            }
+        }
+
+        function deleteComplaint(id) {
+            showConfirmModal('هل أنت متأكد من حذف هذه الرسالة نهائياً؟', async () => {
+                try {
+                    const data = await apiRequest(`/api/admin/complaints-suggestions/${id}`, { method: 'DELETE' });
+                    if (data && data.success) {
+                        showToast('تم حذف الرسالة بنجاح');
+                        loadAdminComplaints();
+                    } else {
+                        showToast((data && data.error) || 'تعذر حذف الرسالة', 'error');
+                    }
+                } catch (err) {
+                    showToast(err.message || 'حدث خطأ أثناء حذف الرسالة', 'error');
+                }
+            });
+        }
+
+        async function loadSalesReport() {
+            try {
+                const data = await apiRequest('/api/admin/reports/sales');
+                if (data && data.success) {
+                    globalSalesReportCache = {
+                        summary: data.summary || null,
+                        daily_sales: data.daily_sales || []
+                    };
+                    document.getElementById('reportTotalRevenue').textContent = `${formatEnNumber(data.summary.total_revenue, 2)} ر.س`;
+                    document.getElementById('reportTotalOrders').textContent = formatEnNumber(data.summary.total_orders_count);
+                    const tbody = document.getElementById('adminDailySalesTableBody');
+                    if (!data.daily_sales.length) { tbody.innerHTML = `<tr><td colspan="3" class="text-center py-6 text-gray-400">لا توجد مبيعات</td></tr>`; return; }
+                    tbody.innerHTML = data.daily_sales.map(row => `
+                        <tr class="hover:bg-whale-50/30">
+                            <td class="p-2.5 sm:p-3 font-bold text-whale-700 num-en">${formatEnDate(row.sale_date)}</td>
+                            <td class="p-2.5 sm:p-3 num-en">${formatEnNumber(row.orders_count)} طلبات</td>
+                            <td class="p-2.5 sm:p-3 font-black text-whale-600 num-en">${formatEnNumber(row.daily_revenue, 2)} ر.س</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل تقرير المبيعات', 'error');
+            }
+        }
+
+        async function loadInventoryReport() {
+            try {
+                const data = await apiRequest('/api/admin/reports/inventory');
+                const tbody = document.getElementById('adminInventoryReportTableBody');
+                if (!data || !data.success || !data.items || !data.items.length) {
+                    globalInventoryReportCache = [];
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-gray-400">لا توجد بيانات مخزون حالياً</td></tr>`;
+                    return;
+                }
+
+                globalInventoryReportCache = data.items;
+
+                tbody.innerHTML = data.items.map(item => {
+                    const remaining = Number(item.current_stock || 0);
+                    const soldQty = Number(item.sold_quantity || 0);
+                    const isOut = remaining <= 0 || !item.is_available;
+                    const badgeClass = isOut
+                        ? 'bg-red-50 text-red-600 border-red-200'
+                        : (remaining <= 5 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200');
+                    const badgeText = isOut ? 'نفد المخزون ❌' : (remaining <= 5 ? 'مخزون منخفض ⚠️' : 'متاح ✅');
+
+                    return `
+                        <tr class="hover:bg-whale-50/30">
+                            <td class="p-2.5 sm:p-3 font-bold text-whale-700">${item.name}</td>
+                            <td class="p-2.5 sm:p-3 font-bold num-en">${formatEnNumber(item.price, 2)} ر.س</td>
+                            <td class="p-2.5 sm:p-3 font-extrabold text-whale-600 num-en">${formatEnNumber(soldQty, 2)} كجم</td>
+                            <td class="p-2.5 sm:p-3 font-black text-whale-700 num-en">${formatEnNumber(remaining, 2)} كجم</td>
+                            <td class="p-2.5 sm:p-3"><span class="px-2.5 py-1 rounded-xl border text-[11px] font-bold ${badgeClass}">${badgeText}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل تقرير المخزون', 'error');
+            }
+        }
+
+        async function loadDeliverySettings() {
+            try {
+                const s = await apiRequest('/api/settings/delivery');
+                document.getElementById('settingDeliveryType').value = s.delivery_type || 'fixed';
+                document.getElementById('settingDeliveryFee').value = s.delivery_fee ?? 20;
+                document.getElementById('settingFreeThreshold').value = s.free_threshold ?? 200;
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل إعدادات التوصيل', 'error');
+            }
+        }
+
+        async function saveDeliverySettings(e) {
+            e.preventDefault();
+            const delivery_type = document.getElementById('settingDeliveryType').value;
+            const delivery_fee = document.getElementById('settingDeliveryFee').value;
+            const free_threshold = document.getElementById('settingFreeThreshold').value;
+            try {
+                const data = await apiRequest('/api/admin/settings/delivery', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ delivery_type, delivery_fee, free_threshold })
+                });
+                if (data && data.success) {
+                    showToast(data.message || 'تم حفظ إعدادات التوصيل بنجاح');
+                } else {
+                    showToast((data && data.error) || 'تعذر حفظ الإعدادات', 'error');
+                }
+            } catch (err) {
+                showToast(err.message || 'حدث خطأ أثناء حفظ الإعدادات', 'error');
+            }
+        }
+
+        async function loadAdminFlashDeal() {
+            try {
+                const settings = await apiRequest('/api/settings/delivery');
+                document.getElementById('adminFlashDealActive').checked = settings.flash_deal_active !== '0';
+                if (settings.flash_deal_text !== undefined) {
+                    document.getElementById('adminFlashDealInput').value = settings.flash_deal_text;
+                }
+            } catch (e) {
+                showToast(e.message || 'تعذر تحميل إعدادات شريط صيد اليوم', 'error');
+            }
+        }
+
+        async function saveFlashDealSetting() {
+            const isActive = document.getElementById('adminFlashDealActive').checked;
+            const newText = document.getElementById('adminFlashDealInput').value.trim();
+            try {
+                const data = await apiRequest('/api/admin/settings/flash-deal', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        flash_deal_active: isActive,
+                        flash_deal_text: newText
+                    })
+                });
+                if (data && data.success) {
+                    showToast(data.message || 'تم تحديث الشريط بنجاح');
+                } else {
+                    showToast((data && data.error) || 'فشل حفظ التعديل', 'error');
+                }
+            } catch (e) {
+                showToast(e.message || 'حدث خطأ أثناء الاتصال بالسيرفر', 'error');
+            }
+        }
+
+        async function adminLogout() {
+            if (ordersPollTimer) clearInterval(ordersPollTimer);
+            try {
+                await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
+            } catch (e) {}
+            localStorage.removeItem('fish_admin');
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
